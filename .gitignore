@@ -11,3 +11,7 @@ __pycache__/
 *.py[cod]
 .venv/
 .DS_Store
+# Metrica's sample games are downloaded by convert/fetch_metrica.sh, not committed.
+external_data/metrica/Sample_Game_*/
+# The organisers' public ground truth: copy evaluation/gt/*_possession_gt_public.csv from their repository.
+evaluation/gt/

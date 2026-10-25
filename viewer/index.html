@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ball Viewer</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #2a2f3a; --text: #e6e8ee; --muted: #8a92a3;
+    --home: #3b82f6; --away: #ef4444; --ball: #facc15; --pitch: #14532d; --pitch-line: #d1fae5;
+    --warn: #f97316;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 -apple-system, system-ui, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; }
+  .group { display: flex; gap: 6px; align-items: center; }
+  button, select, input { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font: inherit; }
+  button:hover { border-color: var(--muted); cursor: pointer; }
+  input[type=number] { width: 90px; }
+  label { color: var(--muted); display: flex; gap: 4px; align-items: center; }
+  main { display: flex; gap: 12px; padding: 12px 16px; align-items: flex-start; }
+  .left { flex: none; width: min(64vw, calc((100vh - var(--chrome, 180px)) * 16 / 18)); display: flex; flex-direction: column; gap: 12px; }
+  @media (max-width: 900px) { main { flex-direction: column; } .left { width: 100%; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  .card h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 6px; text-transform: uppercase; letter-spacing: .04em; display: flex; justify-content: space-between; gap: 8px; }
+  .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  .stage video, .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .stage canvas { pointer-events: none; }
+  #radar { width: 100%; height: auto; display: block; }
+  #info { font-family: ui-monospace, Menlo, monospace; font-size: 12px; white-space: pre; margin-top: 8px; color: var(--text); overflow-x: auto; }
+  .warn { color: var(--warn); }
+  .legend { display: flex; gap: 12px; color: var(--muted); font-size: 12px; margin-top: 6px; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  #status { color: var(--muted); }
+  .right { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ball Viewer</h1>
+  <select id="game"></select>
+  <div class="group">
+    <button id="play">▶ Oynat</button>
+    <button data-step="-25">−1 s</button>
+    <button data-step="-1">−1 f</button>
+    <button data-step="1">+1 f</button>
+    <button data-step="25">+1 s</button>
+    <select id="rate">
+      <option value="0.25">0.25×</option><option value="0.5">0.5×</option>
+      <option value="1" selected>1×</option><option value="2">2×</option>
+    </select>
+  </div>
+  <div class="group">
+    <label>frame <input id="goFrame" type="number" min="0" step="1"></label>
+    <label>dk <input id="goMinute" type="number" min="0" step="0.5" style="width:70px"></label>
+    <button id="go">Git</button>
+  </div>
+  <div class="group">
+    <label><input type="checkbox" id="ovBall" checked> top</label>
+    <label><input type="checkbox" id="ovPlayers" checked> oyuncular</label>
+    <label><input type="checkbox" id="ovTrail" checked> iz (1 s)</label>
+  </div>
+  <span id="status"></span>
+</header>
+
+<main>
+  <div class="left">
+    <div class="card">
+      <h2><span>Tactical video + temiz.top (homography ile)</span><span id="tacFrame"></span></h2>
+      <div class="stage">
+        <video id="tac" preload="auto" muted playsinline></video>
+        <canvas id="overlay" width="1920" height="1080"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span>Broadcast · temiz.yayin_senkronu</span><span id="brdFrame"></span></h2>
+      <div class="stage">
+        <video id="brd" preload="auto" muted playsinline></video>
+        <canvas id="overlayB" width="1920" height="1080"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card">
+      <h2><span>Radar · temiz.top + temiz.oyuncular</span></h2>
+      <canvas id="radar"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--home)"></span>Barcelona (H)</span>
+        <span><span class="dot" style="background:var(--away)"></span>Athletic (A)</span>
+        <span><span class="dot" style="background:var(--ball)"></span>top</span>
+      </div>
+      <div id="info"></div>
+    </div>
+
+    <div class="card">
+      <h2><span>Broadcast senkronu</span></h2>
+      <div class="group" style="flex-wrap:wrap">
+        <label><input type="checkbox" id="link" checked> tactical ile senkron</label>
+        <span id="brdState" class="legend" style="margin:0"></span>
+      </div>
+      <div class="legend">Broadcast frame = tactical frame − offset (yarı başına, veriden hesaplandı). Broadcast'taki işaretler de temiz.top'dan, broadcast'ın kendi homography'si ile; tekrar ve yakın çekimde homography olmadığı için çizilmez.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+let FPS = 25;
+const CHUNK = 250, TRAIL = 25, MAX_CHUNKS = 40;
+const $ = id => document.getElementById(id);
+const tac = $('tac'), brd = $('brd'), overlay = $('overlay'), radar = $('radar');
+const overlayB = $('overlayB');
+const octx = overlay.getContext('2d'), rctx = radar.getContext('2d'), bctx = overlayB.getContext('2d');
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+let meta = null, frame = 0, brdFrame = 0;
+const chunks = new Map(), pending = new Map();
+
+function status(text) { $('status').textContent = text || ''; }
+
+function indexChunk(d) {
+  const ball = new Map(), players = new Map(), hom = new Map();
+  d.ball.frame.forEach((f, k) => ball.set(f, { x: d.ball.x[k], y: d.ball.y[k] }));
+  d.players.frame.forEach((f, k) => {
+    if (!players.has(f)) players.set(f, []);
+    players.get(f).push({ slot: d.players.slot[k], side: d.players.side[k], x: d.players.x[k], y: d.players.y[k] });
+  });
+  const h = d.homography;
+  h.frame.forEach((f, k) => hom.set(f, {
+    m: [h.h00[k], h.h01[k], h.h02[k], h.h10[k], h.h11[k], h.h12[k], h.h20[k], h.h21[k], h.h22[k]],
+    err: h.reprojection_error[k], valid: h.valid[k] === 1,
+  }));
+  const bh = d.broadcast_homography, bhom = new Map();
+  bh.frame.forEach((f, k) => bhom.set(f, {
+    b: bh.broadcast_frame[k], valid: bh.valid[k] === 1,
+    m: [bh.h00[k], bh.h01[k], bh.h02[k], bh.h10[k], bh.h11[k], bh.h12[k], bh.h20[k], bh.h21[k], bh.h22[k]],
+  }));
+  return { ball, players, hom, bhom };
+}
+
+function loadChunk(i) {
+  if (i < 0 || (meta && i * CHUNK >= meta.n_frames)) return Promise.resolve(null);
+  if (chunks.has(i)) return Promise.resolve(chunks.get(i));
+  if (pending.has(i)) return pending.get(i);
+  const p = fetch(`/api/window?game=${encodeURIComponent(meta.game)}&start=${i * CHUNK}&count=${CHUNK}`).then(r => r.json()).then(d => {
+    pending.delete(i);
+    if (d.error) { status(d.error); return null; }
+    chunks.set(i, indexChunk(d));
+    if (chunks.size > MAX_CHUNKS) {
+      const far = [...chunks.keys()].sort((a, b) => Math.abs(b - i) - Math.abs(a - i))[0];
+      chunks.delete(far);
+    }
+    render();
+    return chunks.get(i);
+  }).catch(e => { pending.delete(i); status('veri alınamadı: ' + e); return null; });
+  pending.set(i, p);
+  return p;
+}
+
+function at(f) {
+  const c = chunks.get(Math.floor(f / CHUNK));
+  if (!c) return null;
+  return { ball: c.ball.get(f), players: c.players.get(f) || [], hom: c.hom.get(f), bhom: c.bhom.get(f) };
+}
+
+function project(m, x, y) {
+  const d = m[6] * x + m[7] * y + m[8];
+  return [(m[0] * x + m[1] * y + m[2]) / d, (m[3] * x + m[4] * y + m[5]) / d];
+}
+
+function drawOverlay(f, data) { drawMarks(octx, f, data, data && data.hom); }
+
+function drawBroadcast() {
+  if (!meta) return;
+  const part = meta.sync.find(p => brdFrame >= p.start && brdFrame <= p.end);
+  const f = part ? brdFrame + part.offset : null;
+  const data = f === null ? null : at(f);
+  drawMarks(bctx, f, data, data && data.bhom && data.bhom.b === brdFrame ? data.bhom : null);
+}
+
+function drawMarks(octx, f, data, hom) {
+  octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
+  if (!data || !hom || !hom.valid) return;
+  const m = hom.m;
+  if ($('ovPlayers').checked) {
+    octx.lineWidth = 3;
+    for (const p of data.players) {
+      const [px, py] = project(m, p.x, p.y);
+      octx.strokeStyle = p.side === 'H' ? css('--home') : css('--away');
+      octx.beginPath(); octx.arc(px, py, 14, 0, Math.PI * 2); octx.stroke();
+    }
+  }
+  if ($('ovTrail').checked) drawTrail(f, (x, y) => project(m, x, y), octx, 3);
+  if ($('ovBall').checked && data.ball && data.ball.x !== null) {
+    const [bx, by] = project(m, data.ball.x, data.ball.y);
+    octx.strokeStyle = css('--ball'); octx.lineWidth = 4;
+    octx.beginPath(); octx.arc(bx, by, 18, 0, Math.PI * 2); octx.stroke();
+    octx.beginPath(); octx.moveTo(bx - 28, by); octx.lineTo(bx - 20, by); octx.moveTo(bx + 20, by); octx.lineTo(bx + 28, by);
+    octx.moveTo(bx, by - 28); octx.lineTo(bx, by - 20); octx.moveTo(bx, by + 20); octx.lineTo(bx, by + 28); octx.stroke();
+  }
+}
+
+function drawTrail(f, toPx, ctx, width) {
+  ctx.strokeStyle = css('--ball'); ctx.lineWidth = width; ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  let open = false;
+  for (let g = f - TRAIL; g <= f; g++) {
+    const d = at(g);
+    const b = d && d.ball;
+    if (!b || b.x === null) { open = false; continue; }
+    const [px, py] = toPx(b.x, b.y);
+    if (open) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+    open = true;
+  }
+  ctx.stroke(); ctx.globalAlpha = 1;
+}
+
+const R = { margin: 24, scale: 0 };
+function sizeRadar() {
+  if (!meta) return;
+  const cssWidth = radar.clientWidth || 600, dpr = window.devicePixelRatio || 1;
+  R.scale = (cssWidth - 2 * R.margin) / meta.pitch_length;
+  const cssHeight = meta.pitch_width * R.scale + 2 * R.margin;
+  radar.width = cssWidth * dpr; radar.height = cssHeight * dpr;
+  radar.style.height = cssHeight + 'px';
+  rctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+const toRadar = (x, y) => [R.margin + x * meta.pitch_length * R.scale, R.margin + y * meta.pitch_width * R.scale];
+
+function drawPitch() {
+  const L = meta.pitch_length, W = meta.pitch_width, s = R.scale, o = R.margin;
+  const m = (x, y) => [o + x * s, o + y * s];
+  rctx.fillStyle = css('--pitch'); rctx.fillRect(0, 0, radar.width, radar.height);
+  rctx.strokeStyle = css('--pitch-line'); rctx.lineWidth = 1.5; rctx.globalAlpha = 0.7;
+  const rect = (x, y, w, h) => { const [a, b] = m(x, y); rctx.strokeRect(a, b, w * s, h * s); };
+  rect(0, 0, L, W);
+  rctx.beginPath(); rctx.moveTo(...m(L / 2, 0)); rctx.lineTo(...m(L / 2, W)); rctx.stroke();
+  rctx.beginPath(); rctx.arc(...m(L / 2, W / 2), 9.15 * s, 0, Math.PI * 2); rctx.stroke();
+  for (const side of [0, 1]) {
+    const x0 = side ? L - 16.5 : 0, g0 = side ? L - 5.5 : 0;
+    rect(x0, W / 2 - 20.16, 16.5, 40.32);
+    rect(g0, W / 2 - 9.16, 5.5, 18.32);
+    rect(side ? L : -1.5, W / 2 - 3.66, 1.5, 7.32);
+    rctx.beginPath(); rctx.arc(...m(side ? L - 11 : 11, W / 2), 2, 0, Math.PI * 2); rctx.stroke();
+  }
+  rctx.globalAlpha = 1;
+}
+
+function drawRadar(f, data) {
+  if (!meta || !R.scale) return;
+  drawPitch();
+  if (!data) return;
+  for (const p of data.players) {
+    const [px, py] = toRadar(p.x, p.y);
+    rctx.fillStyle = p.side === 'H' ? css('--home') : css('--away');
+    rctx.beginPath(); rctx.arc(px, py, 5, 0, Math.PI * 2); rctx.fill();
+  }
+  if ($('ovTrail').checked) drawTrail(f, toRadar, rctx, 1.5);
+  const b = data.ball;
+  if (b && b.x !== null) {
+    const [bx, by] = toRadar(b.x, b.y);
+    rctx.fillStyle = css('--ball'); rctx.strokeStyle = '#000'; rctx.lineWidth = 1;
+    rctx.beginPath(); rctx.arc(bx, by, 4.5, 0, Math.PI * 2); rctx.fill(); rctx.stroke();
+  }
+}
+
+function drawInfo(f, data) {
+  const t = f / FPS, mm = Math.floor(t / 60), ss = (t - mm * 60).toFixed(2).padStart(5, '0');
+  const lines = [`frame ${f}   video ${mm}:${ss}`];
+  if (!data) { lines.push('yükleniyor…'); $('info').textContent = lines.join('\n'); return; }
+  const b = data.ball;
+  let ballLine;
+  if (!b) ballLine = 'top: satır yok';
+  else if (b.x === null) ballLine = 'top: görünmüyor';
+  else ballLine = `top: x ${b.x}   y ${b.y}`;
+  lines.push(ballLine);
+  const home = data.players.filter(p => p.side === 'H').length, away = data.players.length - home;
+  lines.push(`oyuncu: H ${home}   A ${away}`);
+  if (data.hom) lines.push(`homography: ${data.hom.valid ? 'geçerli' : 'YOK'}   reprojection_error ${data.hom.err}` +
+    (data.hom.err > 2 ? '   <span class="warn">(yüksek)</span>' : ''));
+  $('info').innerHTML = lines.join('\n');
+}
+
+function render() {
+  const data = at(frame);
+  drawOverlay(frame, data);
+  drawBroadcast();
+  drawRadar(frame, data);
+  drawInfo(frame, data);
+  $('tacFrame').textContent = `frame ${frame}`;
+}
+
+function setFrame(f) {
+  if (f === frame && chunks.has(Math.floor(f / CHUNK))) return;
+  frame = f;
+  const i = Math.floor(f / CHUNK);
+  loadChunk(i); loadChunk(i + 1);
+  if (f % CHUNK < TRAIL) loadChunk(i - 1);
+  render();
+  syncBroadcast();
+}
+
+function seek(f) {
+  if (!meta) return;
+  f = Math.max(0, Math.min(meta.n_frames - 1, Math.round(f)));
+  tac.currentTime = (f + 0.5) / FPS;
+  setFrame(f);
+}
+
+function broadcastFor(f) {
+  for (const part of meta.sync) {
+    const b = f - part.offset;
+    if (b >= part.start && b <= part.end) return b;
+  }
+  return null;
+}
+
+function isLive(b) {
+  return meta.broadcast_live.some(([a, z]) => b >= a && b <= z);
+}
+
+function syncBroadcast(force) {
+  if (!$('link').checked || !meta) return;
+  const mapped = broadcastFor(frame);
+  if (mapped === null) {
+    $('brdState').innerHTML = '<span class="warn">bu an broadcast kaydında yok (devre arası / kayıt dışı)</span>';
+    if (!brd.paused) brd.pause();
+    return;
+  }
+  const target = mapped;
+  if (target < 0 || target >= meta.broadcast_frames) return;
+  $('brdState').innerHTML = isLive(target) ? 'canlı plan (saha görünüyor)' : '<span class="warn">tekrar / yakın çekim / seyirci</span>';
+  brd.playbackRate = tac.playbackRate;
+  if (tac.paused !== brd.paused) tac.paused ? brd.pause() : brd.play();
+  const tolerance = tac.paused ? 0 : 5;
+  if (force || Math.abs(brdFrame - target) > tolerance) brd.currentTime = (target + 0.5) / FPS;
+}
+
+function watchFrames(video, onFrame) {
+  if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+    const cb = (now, md) => { onFrame(Math.round(md.mediaTime * FPS)); video.requestVideoFrameCallback(cb); };
+    video.requestVideoFrameCallback(cb);
+  } else {
+    video.addEventListener('timeupdate', () => onFrame(Math.floor(video.currentTime * FPS)));
+  }
+}
+
+watchFrames(tac, setFrame);
+watchFrames(brd, f => { brdFrame = f; $('brdFrame').textContent = `frame ${f}`; drawBroadcast(); });
+
+$('play').onclick = () => tac.paused ? tac.play() : tac.pause();
+tac.addEventListener('play', () => { $('play').textContent = '❚❚ Durdur'; syncBroadcast(); });
+tac.addEventListener('pause', () => { $('play').textContent = '▶ Oynat'; seek(frame); syncBroadcast(true); });
+document.querySelectorAll('[data-step]').forEach(b => b.onclick = () => { tac.pause(); seek(frame + Number(b.dataset.step)); });
+$('rate').onchange = () => { tac.playbackRate = Number($('rate').value); syncBroadcast(); };
+$('go').onclick = () => {
+  if ($('goFrame').value !== '') seek(Number($('goFrame').value));
+  else if ($('goMinute').value !== '') seek(Number($('goMinute').value) * 60 * FPS);
+  $('goFrame').value = ''; $('goMinute').value = '';
+};
+['ovBall', 'ovPlayers', 'ovTrail'].forEach(id => $(id).onchange = render);
+$('link').onchange = () => syncBroadcast(true);
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space') { e.preventDefault(); $('play').click(); }
+  else if (e.code === 'ArrowRight') { tac.pause(); seek(frame + (e.shiftKey ? FPS : 1)); }
+  else if (e.code === 'ArrowLeft') { tac.pause(); seek(frame - (e.shiftKey ? FPS : 1)); }
+});
+
+function fitLayout() {
+  const card = document.querySelector('.left .card');
+  const cardChrome = card.offsetHeight - card.querySelector('.stage').offsetHeight;
+  const chrome = document.querySelector('header').offsetHeight + 24 + 12 + 2 * cardChrome + 4;
+  document.documentElement.style.setProperty('--chrome', chrome + 'px');
+  sizeRadar(); render();
+}
+window.addEventListener('resize', fitLayout);
+
+const query = new URLSearchParams(location.search);
+fetch(`/api/meta?game=${encodeURIComponent(query.get('game') || '')}`).then(r => r.json()).then(m => {
+  if (m.error) { status(m.error); return; }
+  meta = m;
+  FPS = m.fps;
+  $('game').innerHTML = m.games.map(g => `<option${g === m.game ? ' selected' : ''}>${g}</option>`).join('');
+  $('game').onchange = () => { location.search = '?game=' + encodeURIComponent($('game').value); };
+  const missing = Object.entries(m.videos).filter(([, ok]) => !ok).map(([s]) => s);
+  if (missing.length) status(`video yok: ${missing.map(s => `data/videos/${s}/${m.game}_${s}.mp4`).join(', ')}`);
+  tac.src = `/video/${encodeURIComponent(m.game)}/tactical`;
+  brd.src = `/video/${encodeURIComponent(m.game)}/broadcast`;
+  fitLayout();
+  const start = Number(query.get('frame') || m.first_frame);
+  tac.addEventListener('loadedmetadata', () => seek(start), { once: true });
+  if (tac.readyState >= 1) seek(start);
+  setFrame(start);
+}).catch(e => status('sunucuya ulaşılamadı: ' + e));
+</script>
+</body>
+</html>

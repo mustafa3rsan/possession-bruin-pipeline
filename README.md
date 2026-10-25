@@ -2,7 +2,7 @@
 
 [More than a Hack 2027 – Phase 1: Ball Possession](https://github.com/metrica-sports/more-than-a-hack-2027) için kurduğumuz [Bruin](https://getbruin.com) pipeline'ı. Amaç maçın tactical videosundaki her frame için topun kimde olduğunu tahmin etmek: H (ev sahibi), A (deplasman), D (top ölü) ya da X (puanlanmıyor). Her denemeye bir isim veriyoruz, pipeline tahmini üretip doğru cevaplarla karşılaştırıyor, dashboard'da run'ları yan yana görüyoruz.
 
-Maç verisi bu repoda yok. Sadece yarışmaya kayıtlı olanlara verildiği için `data/` git'e girmiyor; pipeline kendi veri paketinden ürettiğin CSV'leri okuyor.
+Maç verisi bu repoda yok. Sadece yarışmaya kayıtlı olanlara verildiği ve dağıtılamadığı için git'e girmiyor; aşağıdaki "Veri nereye" kısmına bak.
 
 ## Katmanlar
 
@@ -16,7 +16,32 @@ degerlendirme.*  tahmini doğru cevapla karşılaştırıp puanlıyor; degerlend
 
 Kodda maça özel bir şey yok. Frame sayısı, fps ve saha ölçüsü her maçın kendi tracking dosyasından, yarılar Smart Tagging ve tracking'den, broadcast kayması iki kameranın top izlerinden hesaplanıyor. Yeni maç gelince ayrıca bir şey yazmak gerekmiyor.
 
+## Araçlar
+
+| dosya | ne işe yarıyor |
+|---|---|
+| `run.sh <isim>` | Her şeyi tek komutla çalıştırıyor: gerekirse CSV'leri üretiyor, pipeline'ı o isimle çalıştırıp skor tablosunu yazdırıyor. İlk seferde tabloları kendisi oluşturuyor |
+| `convert/to_csv.py` | Organizatörün veri paketini (XML, TXT) `data/csv/` altında CSV'ye çeviriyor. Maçları dosya adından buluyor |
+| `convert/fetch_metrica.sh` | Metrica'nın açık iki maçını GitHub'dan `external_data/metrica`'ya indiriyor |
+| `convert/metrica_to_csv.py` | Metrica maçlarını CSV'ye çeviriyor, olay verisinden H/A/D/X etiketlerini üretiyor |
+| `viewer/server.py` | Tactical ve broadcast videoyu yan yana açıp üstüne topu ve oyuncuları çiziyor, yanında radar. `python3 viewer/server.py`, sonra http://localhost:8765 |
+| `onboarding.sh` | Veriyi adım adım tanıtan tur, sorgularıyla birlikte |
+
+## Veri nereye
+
+Hiçbiri git'e girmiyor, hepsi `.gitignore`'da:
+
+```
+data/                      organizatörün paketi (data/tactical, data/broadcast) ya da MTAH_DATA_DIR ile başka yer
+data/csv/                  convert/ çıktısı, seed'ler buradan okuyor
+data/videos/<kaynak>/      <MAÇ>_<kaynak>.mp4, viewer için
+evaluation/gt/             organizatörün reposundaki <MAÇ>_possession_gt_public.csv
+external_data/metrica/     fetch_metrica.sh indiriyor
+```
+
 ## Çalıştırma
+
+En kolayı `./run.sh benim_denemem`. Elle yapmak istersen:
 
 ```bash
 cat > .bruin.yml <<'YML'
