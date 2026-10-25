@@ -40,6 +40,11 @@
 <header>
   <h1>Ball Viewer</h1>
   <select id="game"></select>
+  <select id="veri" title="Hangi veriyi göstereyim">
+    <option value="temiz">temiz veri</option>
+    <option value="ham">ham veri (temizlik öncesi)</option>
+    <option value="karsilastir">karşılaştır: ham + temiz</option>
+  </select>
   <div class="group">
     <button id="play">▶ Oynat</button>
     <button data-step="-25">−1 s</button>
@@ -67,14 +72,14 @@
 <main>
   <div class="left">
     <div class="card">
-      <h2><span>Tactical video + temiz.top (homography ile)</span><span id="tacFrame"></span></h2>
+      <h2><span>Tactical video <span class="katman"></span></span><span id="tacFrame"></span></h2>
       <div class="stage">
         <video id="tac" preload="auto" muted playsinline></video>
         <canvas id="overlay" width="1920" height="1080"></canvas>
       </div>
     </div>
     <div class="card">
-      <h2><span>Broadcast · temiz.yayin_senkronu</span><span id="brdFrame"></span></h2>
+      <h2><span>Broadcast <span class="katman"></span></span><span id="brdFrame"></span></h2>
       <div class="stage">
         <video id="brd" preload="auto" muted playsinline></video>
         <canvas id="overlayB" width="1920" height="1080"></canvas>
@@ -84,12 +89,13 @@
 
   <div class="right">
     <div class="card">
-      <h2><span>Radar · temiz.top + temiz.oyuncular</span></h2>
+      <h2><span>Radar <span class="katman"></span></span></h2>
       <canvas id="radar"></canvas>
       <div class="legend">
         <span><span class="dot" style="background:var(--home)"></span>Barcelona (H)</span>
         <span><span class="dot" style="background:var(--away)"></span>Athletic (A)</span>
         <span><span class="dot" style="background:var(--ball)"></span>top</span>
+        <span id="halkaAciklama" hidden><span class="dot" style="border:2px dashed var(--muted); background:none"></span>ham veri; dolu nokta temiz veri</span>
       </div>
       <div id="info"></div>
     </div>
@@ -100,7 +106,7 @@
         <label><input type="checkbox" id="link" checked> tactical ile senkron</label>
         <span id="brdState" class="legend" style="margin:0"></span>
       </div>
-      <div class="legend">Broadcast frame = tactical frame − offset (yarı başına, veriden hesaplandı). Broadcast'taki işaretler de temiz.top'dan, broadcast'ın kendi homography'si ile; tekrar ve yakın çekimde homography olmadığı için çizilmez.</div>
+      <div class="legend">Broadcast frame = tactical frame − offset (yarı başına, veriden hesaplandı). Broadcast'taki işaretler de seçili veriden, broadcast'ın kendi homography'si ile; tekrar ve yakın çekimde homography olmadığı için çizilmez.</div>
     </div>
   </div>
 </main>
@@ -136,7 +142,13 @@ function indexChunk(d) {
     b: bh.broadcast_frame[k], valid: bh.valid[k] === 1,
     m: [bh.h00[k], bh.h01[k], bh.h02[k], bh.h10[k], bh.h11[k], bh.h12[k], bh.h20[k], bh.h21[k], bh.h22[k]],
   }));
-  return { ball, players, hom, bhom };
+  const rawBall = new Map(), rawPlayers = new Map();
+  d.raw_ball.frame.forEach((f, k) => rawBall.set(f, { x: d.raw_ball.x[k], y: d.raw_ball.y[k] }));
+  d.raw_players.frame.forEach((f, k) => {
+    if (!rawPlayers.has(f)) rawPlayers.set(f, []);
+    rawPlayers.get(f).push({ slot: d.raw_players.slot[k], side: d.raw_players.side[k], x: d.raw_players.x[k], y: d.raw_players.y[k] });
+  });
+  return { ball, players, hom, bhom, rawBall, rawPlayers };
 }
 
 function loadChunk(i) {
@@ -161,8 +173,24 @@ function loadChunk(i) {
 function at(f) {
   const c = chunks.get(Math.floor(f / CHUNK));
   if (!c) return null;
-  return { ball: c.ball.get(f), players: c.players.get(f) || [], hom: c.hom.get(f), bhom: c.bhom.get(f) };
+  return {
+    ball: c.ball.get(f), players: c.players.get(f) || [], hom: c.hom.get(f), bhom: c.bhom.get(f),
+    rawBall: c.rawBall.get(f), rawPlayers: c.rawPlayers.get(f) || [],
+  };
 }
+
+const mode = () => $('veri').value;
+
+// What to draw, in order: in compare mode the raw data goes underneath as dashed rings.
+function layers(data) {
+  const raw = { players: data.rawPlayers, ball: data.rawBall, hollow: true };
+  const clean = { players: data.players, ball: data.ball, hollow: false };
+  if (mode() === 'ham') return [{ ...raw, hollow: false }];
+  if (mode() === 'karsilastir') return [raw, clean];
+  return [clean];
+}
+
+const ballOf = d => d && (mode() === 'ham' ? d.rawBall : d.ball);
 
 function project(m, x, y) {
   const d = m[6] * x + m[7] * y + m[8];
@@ -183,22 +211,29 @@ function drawMarks(octx, f, data, hom) {
   octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
   if (!data || !hom || !hom.valid) return;
   const m = hom.m;
-  if ($('ovPlayers').checked) {
-    octx.lineWidth = 3;
-    for (const p of data.players) {
-      const [px, py] = project(m, p.x, p.y);
-      octx.strokeStyle = p.side === 'H' ? css('--home') : css('--away');
-      octx.beginPath(); octx.arc(px, py, 14, 0, Math.PI * 2); octx.stroke();
+  for (const layer of layers(data)) {
+    octx.setLineDash(layer.hollow ? [6, 6] : []);
+    const radius = layer.hollow ? 22 : 14;
+    if ($('ovPlayers').checked) {
+      octx.lineWidth = layer.hollow ? 2 : 3;
+      for (const p of layer.players) {
+        const [px, py] = project(m, p.x, p.y);
+        octx.strokeStyle = p.side === 'H' ? css('--home') : css('--away');
+        octx.beginPath(); octx.arc(px, py, radius, 0, Math.PI * 2); octx.stroke();
+      }
+    }
+    if ($('ovBall').checked && layer.ball && layer.ball.x !== null) {
+      const [bx, by] = project(m, layer.ball.x, layer.ball.y);
+      octx.strokeStyle = css('--ball'); octx.lineWidth = layer.hollow ? 2 : 4;
+      octx.beginPath(); octx.arc(bx, by, layer.hollow ? 26 : 18, 0, Math.PI * 2); octx.stroke();
+      if (!layer.hollow) {
+        octx.beginPath(); octx.moveTo(bx - 28, by); octx.lineTo(bx - 20, by); octx.moveTo(bx + 20, by); octx.lineTo(bx + 28, by);
+        octx.moveTo(bx, by - 28); octx.lineTo(bx, by - 20); octx.moveTo(bx, by + 20); octx.lineTo(bx, by + 28); octx.stroke();
+      }
     }
   }
+  octx.setLineDash([]);
   if ($('ovTrail').checked) drawTrail(f, (x, y) => project(m, x, y), octx, 3);
-  if ($('ovBall').checked && data.ball && data.ball.x !== null) {
-    const [bx, by] = project(m, data.ball.x, data.ball.y);
-    octx.strokeStyle = css('--ball'); octx.lineWidth = 4;
-    octx.beginPath(); octx.arc(bx, by, 18, 0, Math.PI * 2); octx.stroke();
-    octx.beginPath(); octx.moveTo(bx - 28, by); octx.lineTo(bx - 20, by); octx.moveTo(bx + 20, by); octx.lineTo(bx + 28, by);
-    octx.moveTo(bx, by - 28); octx.lineTo(bx, by - 20); octx.moveTo(bx, by + 20); octx.lineTo(bx, by + 28); octx.stroke();
-  }
 }
 
 function drawTrail(f, toPx, ctx, width) {
@@ -206,8 +241,7 @@ function drawTrail(f, toPx, ctx, width) {
   ctx.beginPath();
   let open = false;
   for (let g = f - TRAIL; g <= f; g++) {
-    const d = at(g);
-    const b = d && d.ball;
+    const b = ballOf(at(g));
     if (!b || b.x === null) { open = false; continue; }
     const [px, py] = toPx(b.x, b.y);
     if (open) ctx.lineTo(px, py); else ctx.moveTo(px, py);
@@ -251,38 +285,67 @@ function drawRadar(f, data) {
   if (!meta || !R.scale) return;
   drawPitch();
   if (!data) return;
-  for (const p of data.players) {
-    const [px, py] = toRadar(p.x, p.y);
-    rctx.fillStyle = p.side === 'H' ? css('--home') : css('--away');
-    rctx.beginPath(); rctx.arc(px, py, 5, 0, Math.PI * 2); rctx.fill();
+  for (const layer of layers(data)) {
+    for (const p of layer.players) {
+      const [px, py] = toRadar(p.x, p.y);
+      const color = p.side === 'H' ? css('--home') : css('--away');
+      rctx.beginPath(); rctx.arc(px, py, layer.hollow ? 8 : 5, 0, Math.PI * 2);
+      if (layer.hollow) { rctx.strokeStyle = color; rctx.lineWidth = 1.5; rctx.setLineDash([3, 3]); rctx.stroke(); rctx.setLineDash([]); }
+      else { rctx.fillStyle = color; rctx.fill(); }
+    }
+    const b = layer.ball;
+    if (b && b.x !== null) {
+      const [bx, by] = toRadar(b.x, b.y);
+      rctx.beginPath(); rctx.arc(bx, by, layer.hollow ? 8 : 4.5, 0, Math.PI * 2);
+      if (layer.hollow) { rctx.strokeStyle = css('--ball'); rctx.lineWidth = 1.5; rctx.setLineDash([3, 3]); rctx.stroke(); rctx.setLineDash([]); }
+      else { rctx.fillStyle = css('--ball'); rctx.strokeStyle = '#000'; rctx.lineWidth = 1; rctx.fill(); rctx.stroke(); }
+    }
   }
   if ($('ovTrail').checked) drawTrail(f, toRadar, rctx, 1.5);
-  const b = data.ball;
-  if (b && b.x !== null) {
-    const [bx, by] = toRadar(b.x, b.y);
-    rctx.fillStyle = css('--ball'); rctx.strokeStyle = '#000'; rctx.lineWidth = 1;
-    rctx.beginPath(); rctx.arc(bx, by, 4.5, 0, Math.PI * 2); rctx.fill(); rctx.stroke();
+}
+
+// Slots the cleaning dropped or moved to the other team at this frame.
+function differences(data) {
+  const clean = new Map(data.players.map(p => [p.slot, p]));
+  const dropped = [], relabelled = [];
+  for (const p of data.rawPlayers) {
+    const c = clean.get(p.slot);
+    if (!c) dropped.push(`${p.side} slot ${p.slot}`);
+    else if (c.side !== p.side) relabelled.push(`slot ${p.slot} ${p.side}→${c.side}`);
   }
+  return { dropped, relabelled };
 }
 
 function drawInfo(f, data) {
   const t = f / FPS, mm = Math.floor(t / 60), ss = (t - mm * 60).toFixed(2).padStart(5, '0');
   const lines = [`frame ${f}   video ${mm}:${ss}`];
   if (!data) { lines.push('yükleniyor…'); $('info').textContent = lines.join('\n'); return; }
-  const b = data.ball;
+  const b = ballOf(data);
   let ballLine;
   if (!b) ballLine = 'top: satır yok';
   else if (b.x === null) ballLine = 'top: görünmüyor';
   else ballLine = `top: x ${b.x}   y ${b.y}`;
   lines.push(ballLine);
-  const home = data.players.filter(p => p.side === 'H').length, away = data.players.length - home;
+  const players = mode() === 'ham' ? data.rawPlayers : data.players;
+  const home = players.filter(p => p.side === 'H').length, away = players.length - home;
   lines.push(`oyuncu: H ${home}   A ${away}`);
+  if (mode() !== 'temiz') {
+    const { dropped, relabelled } = differences(data);
+    const rawHome = data.rawPlayers.filter(p => p.side === 'H').length;
+    lines.push(`ham: H ${rawHome}   A ${data.rawPlayers.length - rawHome}   temiz: H ${data.players.filter(p => p.side === 'H').length}   A ${data.players.filter(p => p.side === 'A').length}`);
+    lines.push(dropped.length || relabelled.length
+      ? `<span class="warn">temizlik: ${[dropped.length ? 'silinen ' + dropped.join(', ') : '', relabelled.length ? 'takımı değişen ' + relabelled.join(', ') : ''].filter(Boolean).join('   ')}</span>`
+      : 'temizlik bu frame\'de bir şey değiştirmedi');
+  }
   if (data.hom) lines.push(`homography: ${data.hom.valid ? 'geçerli' : 'YOK'}   reprojection_error ${data.hom.err}` +
     (data.hom.err > 2 ? '   <span class="warn">(yüksek)</span>' : ''));
   $('info').innerHTML = lines.join('\n');
 }
 
 function render() {
+  const label = { temiz: 'temiz veri', ham: 'ham veri', karsilastir: 'ham (kesik halka) + temiz' }[mode()];
+  document.querySelectorAll('.katman').forEach(el => { el.textContent = '· ' + label; });
+  $('halkaAciklama').hidden = mode() !== 'karsilastir';
   const data = at(frame);
   drawOverlay(frame, data);
   drawBroadcast();
@@ -384,7 +447,9 @@ fetch(`/api/meta?game=${encodeURIComponent(query.get('game') || '')}`).then(r =>
   meta = m;
   FPS = m.fps;
   $('game').innerHTML = m.games.map(g => `<option${g === m.game ? ' selected' : ''}>${g}</option>`).join('');
-  $('game').onchange = () => { location.search = '?game=' + encodeURIComponent($('game').value); };
+  $('game').onchange = () => { location.search = '?game=' + encodeURIComponent($('game').value) + '&veri=' + mode(); };
+  if (query.get('veri')) $('veri').value = query.get('veri');
+  $('veri').onchange = render;
   const missing = Object.entries(m.videos).filter(([, ok]) => !ok).map(([s]) => s);
   if (missing.length) status(`video yok: ${missing.map(s => `data/videos/${s}/${m.game}_${s}.mp4`).join(', ')}`);
   tac.src = `/video/${encodeURIComponent(m.game)}/tactical`;

@@ -85,8 +85,15 @@ def window(game, start, count):
         JOIN temiz.yayin_senkronu s ON s.game = h.game AND h.frame BETWEEN s.broadcast_start AND s.broadcast_end
         WHERE h.game = ? AND h.source = 'broadcast' AND h.frame + s."offset" BETWEEN ? AND ?
         ORDER BY 1""".format(", ".join("h." + c for c in H_COLUMNS)), [game, start, stop])
+    raw_ball = query("""
+        SELECT frame, x, y FROM ham.top
+        WHERE game = ? AND source = 'tactical' AND frame BETWEEN ? AND ? ORDER BY frame""", [game, start, stop])
+    raw_players = query("""
+        SELECT p.frame, p.slot, t.side, p.x, p.y FROM ham.oyuncular p JOIN ham.slotlar t USING (game, source, slot)
+        WHERE p.game = ? AND p.source = 'tactical' AND p.frame BETWEEN ? AND ? ORDER BY p.frame, p.slot""",
+                        [game, start, stop])
     return {"start": start, "count": count, "ball": ball, "players": players, "homography": homography,
-            "broadcast_homography": broadcast_homography}
+            "broadcast_homography": broadcast_homography, "raw_ball": raw_ball, "raw_players": raw_players}
 
 
 def clean_json(value):
