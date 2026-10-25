@@ -1,7 +1,7 @@
 /* @bruin
 name: degerlendirme.karisiklik
 type: duckdb.sql
-description: Graded frames per ground-truth label and predicted label, per run and game.
+description: "Hangi etiketi hangisiyle karıştırıyoruz, mesela gerçekte D iken kaç frame H demişiz. Dashboard'daki confusion matrix buradan."
 
 depends:
   - degerlendirme.kareler

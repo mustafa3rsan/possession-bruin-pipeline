@@ -1,8 +1,9 @@
-"""The model the pipeline runs. Change it here, then bruin run --var 'run_name="<new_name>"' possession/.
+"""Pipeline'ın çalıştırdığı model. Değişikliği burada yap, sonra yeni bir isimle çalıştır:
+bruin run --workers 1 --var 'run_name="yeni_isim"' possession/
 
-predict(con, game) gets a DuckDB connection and one game from temiz.maclar, reads temiz.top and
-temiz.oyuncular for that game, and returns one row per frame: frame (0..n_frames-1) and label
-(H, A, D or X). The same code runs on every game. PARAMS is stored with every run.
+predict(con, game) bir maç için temiz.top ve temiz.oyuncular'ı okuyor, her frame için bir satır
+döndürüyor: frame (0..n_frames-1) ve label (H, A, D ya da X). Aynı kod her maçta çalışıyor.
+PARAMS her run ile birlikte kaydediliyor, hangi ayarla çalıştığını sonra görebilelim diye.
 """
 
 import numpy as np
@@ -22,9 +23,9 @@ GROUP BY b.frame
 """
 
 
-# smooth() is copied from the organisers' starter/baseline.py, MIT Licence, (c) 2026-2027 Metrica Sports.
+# smooth() organizatörün starter/baseline.py dosyasından kopya, MIT Lisansı, (c) 2026-2027 Metrica Sports.
 def smooth(codes, window):
-    """Majority vote over a centred window of +/- `window` frames. D where nobody has the ball."""
+    """Her frame için önündeki ve arkasındaki `window` frame'de çoğunluk hangi takımdaysa onu seçiyor; kimse yoksa D."""
     if window <= 0:
         return np.where(codes == HOME, "H", np.where(codes == AWAY, "A", "D"))
 

@@ -1,6 +1,6 @@
 name: ham.metrica_oyuncular
 type: duckdb.seed
-description: Player positions (0-1) per frame of the Metrica sample games, one row per observed player. No speed in the source.
+description: "Metrica maçlarında oyuncuların konumu. Hız bilgisi yok."
 
 parameters:
   path: ../../../../data/csv/metrica/players.csv

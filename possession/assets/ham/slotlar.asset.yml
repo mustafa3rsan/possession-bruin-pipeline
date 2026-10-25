@@ -1,6 +1,6 @@
 name: ham.slotlar
 type: duckdb.seed
-description: ATD track slots (tracklets, not people) and the team each belongs to.
+description: "Tracking'deki her slot kimin; oyuncu kimliği, adı, forma numarası ve takımı (H ev sahibi, A deplasman)."
 
 parameters:
   path: ../../../data/csv/tracks.csv

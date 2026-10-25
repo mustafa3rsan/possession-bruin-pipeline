@@ -1,7 +1,7 @@
 /* @bruin
 name: temiz.devreler
 type: duckdb.sql
-description: The two halves of every competition game. A half starts at its Smart Tagging Kick Off (Start) tag and ends when the teams leave the pitch, the first time after its last team phase that fewer than 15 people are tracked for 30 s. Zone tags (players or ball in the box, ball in final third) do not count as phases because Smart Tagging also fires them during halftime.
+description: "Her yarışma maçının iki yarısı ne zaman başlıyor, ne zaman bitiyor. Başlangıcı Smart Tagging'deki santradan alıyoruz. Bitişi, son gerçek oyun fazından sonra sahada 30 saniye boyunca 15'ten az kişi göründüğü an, yani takımların soyunma odasına gittiği an. Ceza sahası gibi bölge etiketlerini saymıyoruz çünkü Smart Tagging bunları devre arasında da yanlışlıkla atıyor."
 
 depends:
   - ham.maclar
@@ -12,7 +12,7 @@ materialization:
   type: table
 
 custom_checks:
-  - name: every game has two halves, in order, not overlapping
+  - name: her maçta sırayla gelen, üst üste binmeyen iki yarı var
     query: |
       SELECT count(*) FROM ham.maclar g
       LEFT JOIN (

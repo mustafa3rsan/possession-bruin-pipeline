@@ -1,6 +1,6 @@
 name: ham.smart_tagging
 type: duckdb.seed
-description: Metrica Smart Tagging phases and set pieces of every game, start/end in seconds and tactical video frames.
+description: "Metrica'nın yazılımının otomatik çıkardığı taktik etiketler; oyun fazları, duran toplar, santralar. Her etiketin başı ve sonu hem saniye hem frame olarak var. Yazılım ürettiği için hatalı olabilir."
 
 parameters:
   path: ../../../data/csv/smart_tagging.csv
@@ -36,6 +36,6 @@ columns:
     type: varchar
 
 custom_checks:
-  - name: id is unique within a game
+  - name: id bir maç içinde tekrar etmiyor
     query: SELECT count(*) - count(DISTINCT (game, id)) FROM ham.smart_tagging
     value: 0

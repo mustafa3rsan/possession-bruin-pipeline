@@ -1,6 +1,6 @@
 name: ham.oyuncular
 type: duckdb.seed
-description: Tracked object positions (normalised 0-1) and speed, one row per observed slot per frame.
+description: "Her frame'de takip edilen her oyuncunun konumu (0-1 arası) ve hızı. Bir satır, bir frame'deki bir slot."
 
 parameters:
   path: ../../../data/csv/players.csv

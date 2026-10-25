@@ -1,7 +1,7 @@
 /* @bruin
 name: temiz.top
 type: duckdb.sql
-description: Ball position (0-1) and speed per frame of every game; for competition games the tactical recording, the one submissions are indexed to, inside temiz.devreler only.
+description: "Modelin okuduğu top verisi. Yarışma maçlarında sadece tactical kamera (submission ona göre) ve sadece yarıların içi; devre arası, maç öncesi ve sonrası atılıyor. Henüz başka temizlik yok, sıçramalar falan hâlâ içinde."
 
 depends:
   - ham.top

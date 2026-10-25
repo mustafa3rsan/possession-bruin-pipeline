@@ -1,6 +1,6 @@
 name: ham.homografi
 type: duckdb.seed
-description: Per-frame 3x3 matrix from normalised pitch coordinates to image pixels; NaN where valid = 0.
+description: "Her frame için sahadaki bir noktayı videodaki piksele çeviren 3x3 matris; videonun üstüne top ve oyuncu çizmek için lazım. valid 0 ise o frame'de saha görünmüyor (yakın çekim, tekrar vs.) ve matris boş."
 
 parameters:
   path: ../../../data/csv/homography.csv

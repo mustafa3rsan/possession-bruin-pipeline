@@ -1,22 +1,22 @@
 # Possession pipeline
 
-A [Bruin](https://getbruin.com) pipeline for [More than a Hack 2027 – Phase 1: Ball Possession](https://github.com/metrica-sports/more-than-a-hack-2027): predict who has the ball (H, A, D, X) on every frame of a match's tactical video, and score each named run.
+[More than a Hack 2027 – Phase 1: Ball Possession](https://github.com/metrica-sports/more-than-a-hack-2027) için kurduğumuz [Bruin](https://getbruin.com) pipeline'ı. Amaç maçın tactical videosundaki her frame için topun kimde olduğunu tahmin etmek: H (ev sahibi), A (deplasman), D (top ölü) ya da X (puanlanmıyor). Her denemeye bir isim veriyoruz, pipeline tahmini üretip doğru cevaplarla karşılaştırıyor, dashboard'da run'ları yan yana görüyoruz.
 
-The match data is not here. It is licensed to enrolled participants only, so `data/` is ignored and the pipeline reads CSVs you generate from your own copy of the bundle.
+Maç verisi bu repoda yok. Sadece yarışmaya kayıtlı olanlara verildiği için `data/` git'e girmiyor; pipeline kendi veri paketinden ürettiğin CSV'leri okuyor.
 
-## Layers
+## Katmanlar
 
 ```
-ham.*            seeds from data/csv/*.csv, one game column throughout
-temiz.*          games (maclar), halves (devreler), ball (top) and players (oyuncular) inside the halves,
-                 ground truth (dogru_cevaplar), broadcast-to-tactical sync (yayin_senkronu)
-model.*          model/predict.py run under a name (son_tahminler); model.tahminler keeps every run
-degerlendirme.*  per-frame and per-possession scores; degerlendirme.skorlar is one row per run and game
+ham.*            CSV'lerden olduğu gibi yüklenen veri, her tabloda game kolonu var
+temiz.*          maçlar (maclar), yarılar (devreler), yarıların içindeki top (top) ve oyuncular (oyuncular),
+                 doğru cevaplar (dogru_cevaplar), broadcast ile tactical'ın zaman eşlemesi (yayin_senkronu)
+model.*          model/predict.py bir isimle çalışıyor (son_tahminler); model.tahminler bütün run'ları saklıyor
+degerlendirme.*  tahmini doğru cevapla karşılaştırıp puanlıyor; degerlendirme.skorlar her run ve maç için bir satır
 ```
 
-Nothing is specific to one match: frame counts, frame rate and pitch size come from each game's tracking metadata, the halves from Smart Tagging and tracking, the broadcast offset from the two ball tracks.
+Kodda maça özel bir şey yok. Frame sayısı, fps ve saha ölçüsü her maçın kendi tracking dosyasından, yarılar Smart Tagging ve tracking'den, broadcast kayması iki kameranın top izlerinden hesaplanıyor. Yeni maç gelince ayrıca bir şey yazmak gerekmiyor.
 
-## Run
+## Çalıştırma
 
 ```bash
 cat > .bruin.yml <<'YML'
@@ -32,14 +32,14 @@ environments:
           read_only: true
 YML
 
-bruin run --workers 1 --full-refresh --var 'run_name="baseline"' possession/   # first run creates the tables
-bruin run --workers 1 --var 'run_name="my_change"' possession/                  # later runs add to them
+bruin run --workers 1 --full-refresh --var 'run_name="baseline"' possession/   # ilk sefer tabloları oluşturuyor
+bruin run --workers 1 --var 'run_name="benim_denemem"' possession/             # sonrakiler üstüne ekliyor
 bruin lineage possession/assets/degerlendirme/skorlar.sql
 dac serve --dir possession --open
 ```
 
-The seeds expect `data/csv/` (see the `path` of each asset under `possession/assets/ham`). `--workers 1` runs one step at a time, because DuckDB lets only one process write to the file.
+Seed'ler `data/csv/` altını okuyor (`possession/assets/ham` altındaki her asset'in `path`'ine bak). `--workers 1` adımları tek tek çalıştırıyor, çünkü DuckDB dosyasına aynı anda sadece bir işlem yazabiliyor.
 
-## Credits
+## Teşekkür
 
-`evaluation/possession_metrics.py` and `smooth()` in `model/predict.py` are from the organisers' repository, MIT Licence, (c) 2026-2027 Metrica Sports.
+`evaluation/possession_metrics.py` ve `model/predict.py` içindeki `smooth()` organizatörün reposundan, MIT Lisansı, (c) 2026-2027 Metrica Sports.

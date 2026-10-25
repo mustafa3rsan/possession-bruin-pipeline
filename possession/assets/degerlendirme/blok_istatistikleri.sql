@@ -1,7 +1,7 @@
 /* @bruin
 name: degerlendirme.blok_istatistikleri
 type: duckdb.sql
-description: Possession counts and mean durations per run and game, for the ground truth and the prediction.
+description: "Kaç possession var ve ortalama kaç saniye sürüyor; gerçekte ve bizim tahminimizde."
 
 depends:
   - degerlendirme.bloklar

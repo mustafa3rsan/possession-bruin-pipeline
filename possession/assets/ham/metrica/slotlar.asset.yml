@@ -1,6 +1,6 @@
 name: ham.metrica_slotlar
 type: duckdb.seed
-description: Player slots of the Metrica sample games, home first, and their side.
+description: "Metrica maçlarında hangi slot hangi takımın oyuncusu. Önce ev sahibi oyuncular geliyor."
 
 parameters:
   path: ../../../../data/csv/metrica/tracks.csv

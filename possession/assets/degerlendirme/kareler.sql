@@ -1,7 +1,7 @@
 /* @bruin
 name: degerlendirme.kareler
 type: duckdb.sql
-description: Graded frames of each run and game (ground truth not X), with abstentions filled the way the scorer fills them.
+description: "Puanlanan her frame'de tahminimiz ile doğru cevap yan yana. Modelin X dediği yerleri organizatörün skor kodu nasıl dolduruyorsa öyle dolduruyoruz. Diğer değerlendirme tabloları buradan besleniyor."
 
 depends:
   - model.tahminler

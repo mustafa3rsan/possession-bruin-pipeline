@@ -1,7 +1,7 @@
 /* @bruin
 name: temiz.oyuncular
 type: duckdb.sql
-description: Observed player positions (0-1) and speed per frame of every game, with each slot's side; for competition games the tactical recording inside temiz.devreler only.
+description: "Modelin okuduğu oyuncu verisi, her oyuncunun takımıyla birlikte. temiz.top ile aynı filtreler. Henüz başka temizlik yok."
 
 depends:
   - ham.oyuncular

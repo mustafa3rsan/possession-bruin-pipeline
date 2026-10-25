@@ -1,6 +1,6 @@
 name: ham.atd_parametreleri
 type: duckdb.seed
-description: Every provider parameter in the ATD metadata, plus field size and frame rate.
+description: "Tracking dosyasının teknik ayarları olduğu gibi (saha ölçüsü, fps vs.). Şimdilik kullanmıyoruz, lazım olursa diye duruyor."
 
 parameters:
   path: ../../../data/csv/atd_parameters.csv

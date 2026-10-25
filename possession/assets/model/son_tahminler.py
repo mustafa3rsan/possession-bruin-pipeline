@@ -2,7 +2,7 @@
 name: model.son_tahminler
 image: python:3.11
 connection: possession
-description: This run's labels from model/predict.py for every game in temiz.maclar; model.tahminler keeps every run.
+description: "model/predict.py'yi çalıştırıp her maçın her frame'i için H/A/D/X tahmini üretiyor. Sadece son run'ı tutuyor, arşiv model.tahminler'de."
 
 secrets:
   - key: possession

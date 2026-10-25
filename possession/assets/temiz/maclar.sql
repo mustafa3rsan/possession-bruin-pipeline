@@ -1,7 +1,7 @@
 /* @bruin
 name: temiz.maclar
 type: duckdb.sql
-description: Every game a model is run on. Competition games come from the data bundle with their own frame count, frame rate and pitch size; graded is true where a ground truth exists to score against.
+description: "Modeli çalıştırdığımız bütün maçlar, yarışma maçları ve Metrica maçları bir arada. graded true ise elimizde o maçın doğru cevapları var, skor hesaplayabiliyoruz."
 
 depends:
   - ham.maclar

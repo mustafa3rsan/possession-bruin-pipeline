@@ -1,6 +1,6 @@
 name: ham.metrica_dogru_cevaplar
 type: duckdb.seed
-description: Per-frame H/A/D/X labels of the Metrica sample games, derived from their event data.
+description: "Metrica maçları için H/A/D/X etiketleri. Elle yapmadık, maçın olay verisinden (pas, taç, faul vs.) kodla ürettik."
 
 parameters:
   path: ../../../../data/csv/metrica/ground_truth.csv

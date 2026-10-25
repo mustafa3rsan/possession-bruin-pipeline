@@ -2,7 +2,7 @@
 name: temiz.yayin_senkronu
 image: python:3.11
 connection: possession
-description: Where each part of a game's broadcast recording sits on its tactical timeline, tactical frame = broadcast frame + offset. Found by sliding the broadcast ball track along the tactical one on the live broadcast shots; a part ends where the broadcast was cut, BAR-ATH's at halftime.
+description: "Broadcast videosunun hangi frame'i tactical videonun hangi frame'ine denk geliyor. İki kameranın top izlerini üst üste koyup en iyi çakıştıkları kaymayı buluyoruz; tactical frame = broadcast frame + offset. Broadcast kaydı kesildiği yerde (BAR-ATH'ta devre arası) yeni bir satır başlıyor."
 
 secrets:
   - key: possession
@@ -29,10 +29,10 @@ columns:
     description: tactical frame = broadcast frame + offset
   - name: shots
     type: integer
-    description: Live broadcast shots that agreed on this offset
+    description: Bu kaymada buluşan canlı yayın planı sayısı; ne kadar çoksa o kadar güvenilir
   - name: median_error_m
     type: double
-    description: Median distance between the two ball tracks at this offset, in metres
+    description: Bu kaymada iki kameranın topu arasındaki ortalama mesafe, metre
 @bruin"""
 
 import json
@@ -69,7 +69,7 @@ def live_shots(con, game, n_frames):
 
 
 def errors(tactical, broadcast, frames, offsets):
-    """Median ball distance for each offset; inf where the tracks overlap on too few frames."""
+    """Her kayma için iki top arasındaki ortalama mesafe; iki top yeterince birlikte görünmüyorsa sonsuz."""
     out = np.full(len(offsets), np.inf)
     for i in range(0, len(offsets), 5000):
         block = offsets[i:i + 5000]

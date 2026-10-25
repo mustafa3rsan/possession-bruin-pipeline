@@ -1,7 +1,7 @@
 /* @bruin
 name: degerlendirme.kare_skorlari
 type: duckdb.sql
-description: Frame-level metrics per run and game, defined as in evaluation/possession_metrics.py (a predicted X on a graded frame is a miss).
+description: "Frame frame bakınca ne kadar tutturduk; macroF1, doğruluk, H, A ve D için ayrı ayrı başarı. Hesaplar organizatörün skor koduyla aynı."
 
 depends:
   - degerlendirme.kareler

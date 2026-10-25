@@ -1,5 +1,5 @@
-name: Possession runs
-description: Every pipeline run, scored on the public window of each competition game and on the Metrica sample games
+name: Possession run'ları
+description: Her run'ın skoru; yarışma maçlarında public pencerede, Metrica maçlarında maçın tamamında
 connection: possession_read
 
 filters:
@@ -16,7 +16,7 @@ filters:
   - name: timeline_minute
     type: number
     default: 0
-    tab: Overview
+    tab: Genel bakış
 
 queries:
   selected:
@@ -28,17 +28,17 @@ queries:
 
 rows:
   - widgets:
-      - name: How to read this
+      - name: Nasıl okunur
         type: text
         col: 12
         content: |
-          **Pick models on the Metrica average.** Metrica 1 and 2 are full matches with ~665 possessions between them,
-          labelled from their event data; on the four organiser baselines they pick the same winner as the hidden
-          full-match score. A competition game is graded on its public window only (BAR-ATH: 5 minutes, 17 possessions): a check, not a ranking.
-          Metrica's labels are defined differently from the competition's, so compare runs, not absolute numbers.
+          **Modeli Metrica ortalamasına bakarak seçiyoruz.** Metrica 1 ve 2 iki tam maç, toplam ~665 possession var;
+          etiketlerini olay verisinden kodla ürettik. Organizatörün dört baseline'ında gizli tam maç skoruyla aynı kazananı seçiyor.
+          Yarışma maçında sadece public pencere puanlanıyor (BAR-ATH'ta 5 dakika, 17 possession); orası kontrol için, sıralama için değil.
+          Metrica'nın etiket tanımı yarışmanınkiyle birebir aynı değil, o yüzden mutlak sayıya değil run'lar arasındaki farka bakıyoruz.
 
   - widgets:
-      - name: spellF1 per run and game
+      - name: Run ve maç başına spellF1
         type: table
         col: 12
         sql: |
@@ -58,7 +58,7 @@ rows:
           - name: run_name
             frozen: true
           - name: metrica_avg
-            label: Metrica avg spellF1
+            label: Metrica ort. spellF1
             number: ".4f"
             format:
               - { backgroundColor: [red, white, green] }
@@ -73,20 +73,20 @@ rows:
             format:
               - { backgroundColor: [red, white, green] }
           - name: competition_public
-            label: Competition public window
+            label: Yarışma public pencere
             number: ".4f"
             format:
               - { backgroundColor: [red, white, green] }
           - name: metrica_macro_f1
-            label: Metrica avg macroF1
+            label: Metrica ort. macroF1
             number: ".4f"
           - name: competition_macro_f1
-            label: Competition macroF1
+            label: Yarışma macroF1
             number: ".4f"
 
-  - tab: Overview
+  - tab: Genel bakış
     widgets:
-      - name: spellF1 (ranked on)
+      - name: spellF1 (sıralama buna göre)
         type: metric
         col: 3
         query: selected
@@ -96,20 +96,20 @@ rows:
         col: 3
         query: selected
         value: { field: macro_f1, type: number, format: ".4f" }
-      - name: Possessions predicted
+      - name: Tahmin ettiğimiz possession
         type: metric
         col: 3
         query: selected
         value: { field: poss, type: number, format: ",d" }
-      - name: Possessions in the ground truth
+      - name: Gerçekteki possession
         type: metric
         col: 3
         query: selected
         value: { field: gt_poss, type: number, format: ",d" }
 
-  - tab: Overview
+  - tab: Genel bakış
     widgets:
-      - name: Selected game, every run
+      - name: Seçili maç, bütün run'lar
         type: table
         col: 12
         sql: |
@@ -136,25 +136,25 @@ rows:
             label: macroF1
             number: ".4f"
           - name: dur
-            label: mean poss (s)
+            label: ort. possession (sn)
             number: ".1f"
           - name: gt_dur
-            label: gt mean poss (s)
+            label: gerçek ort. possession (sn)
             number: ".1f"
           - name: accuracy
             number: ".1%"
           - name: alive_dead_f1
             number: ".4f"
           - name: f1_d
-            label: F1 dead ball
+            label: ölü top F1
             number: ".4f"
           - name: team_acc_gt_alive
-            label: team acc
+            label: takım doğruluğu
             number: ".1%"
 
-  - tab: Overview
+  - tab: Genel bakış
     widgets:
-      - name: Timeline, ground truth vs selected run (5 minutes from the timeline_minute filter)
+      - name: Zaman çizelgesi, gerçek ve seçili run (timeline_minute filtresinden itibaren 5 dakika)
         type: chart
         chart: vega-lite
         col: 12
@@ -163,7 +163,7 @@ rows:
             SELECT min(start_frame) + {{ filters.timeline_minute }} * 1500 AS first_frame
             FROM degerlendirme.bloklar WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1)) AND series = 'gt'
           )
-          SELECT CASE series WHEN 'gt' THEN 'ground truth' ELSE run_name END AS source,
+          SELECT CASE series WHEN 'gt' THEN 'gerçek' ELSE run_name END AS source,
                  label,
                  greatest(start_frame, first_frame) / 25.0 AS start_s,
                  least(stop_frame, first_frame + 7500) / 25.0 AS end_s
@@ -177,8 +177,8 @@ rows:
           height: 120
           mark: { type: bar }
           encoding:
-            y: { field: source, type: nominal, title: null, sort: ["ground truth"] }
-            x: { field: start_s, type: quantitative, title: "video time (s)", scale: { zero: false } }
+            y: { field: source, type: nominal, title: null, sort: ["gerçek"] }
+            x: { field: start_s, type: quantitative, title: "video zamanı (sn)", scale: { zero: false } }
             x2: { field: end_s }
             color:
               field: label
@@ -187,16 +187,16 @@ rows:
             tooltip:
               - { field: source }
               - { field: label }
-              - { field: start_s, title: start (s) }
-              - { field: end_s, title: end (s) }
+              - { field: start_s, title: başlangıç (sn) }
+              - { field: end_s, title: bitiş (sn) }
 
-  - tab: Overview
+  - tab: Genel bakış
     widgets:
-      - name: Confusion matrix (graded frames)
+      - name: Karışıklık matrisi (puanlanan frame'ler)
         type: pivot_table
         col: 6
         sql: |
-          SELECT 'truth ' || gt AS truth, 'pred ' || pred AS pred, frames
+          SELECT 'gerçek ' || gt AS truth, 'tahmin ' || pred AS pred, frames
           FROM degerlendirme.karisiklik
           WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1))
             AND run_name = coalesce(nullif('{{ filters.run }}', ''),
@@ -209,7 +209,7 @@ rows:
               summarize: sum
               format:
                 - backgroundColor: ["#FFFFFF", "#60A5FA"]
-      - name: spellF1 by IoU threshold
+      - name: IoU eşiğine göre spellF1
         type: chart
         chart: bar
         col: 6
@@ -225,9 +225,9 @@ rows:
         x: { field: iou, type: category }
         y: { field: [f1], type: number, format: ".2f", beginAtZero: true }
 
-  - tab: Overview
+  - tab: Genel bakış
     widgets:
-      - name: Frame agreement per minute, every run, selected game
+      - name: Dakika başına frame uyumu, seçili maç, bütün run'lar
         type: chart
         chart: line
         col: 12
@@ -240,9 +240,9 @@ rows:
         y: { field: [agreement], format: ".0%", beginAtZero: true }
         color: { field: run_name }
 
-  - tab: Run details
+  - tab: Run detayı
     widgets:
-      - name: Model behind the selected run
+      - name: Seçili run'ı üreten model
         type: table
         col: 12
         sql: |

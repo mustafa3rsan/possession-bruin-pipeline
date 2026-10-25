@@ -1,6 +1,6 @@
 name: ham.maclar
 type: duckdb.seed
-description: Every competition game found in the data bundle, with its tactical frame count, frame rate and pitch size from its own tracking metadata.
+description: "Veri paketinde bulduğumuz yarışma maçları. Her maçın kaç frame olduğu, fps'i ve saha ölçüsü maçın kendi tracking dosyasından geliyor. Broadcast videosu var mı onu da tutuyoruz."
 
 parameters:
   path: ../../../data/csv/games.csv

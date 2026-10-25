@@ -1,6 +1,6 @@
 name: ham.top
 type: duckdb.seed
-description: Ball position (normalised 0-1) and speed per video frame of each game and source; null where not tracked.
+description: "Her frame'de topun nerede olduğu ve hızı, iki kamera için ayrı ayrı (tactical ve broadcast). Konumlar 0-1 arası, metreye çevirmek için saha ölçüsüyle çarpıyoruz. Top görünmüyorsa boş."
 
 depends:
   - ham.maclar
@@ -27,7 +27,7 @@ columns:
     type: double
 
 custom_checks:
-  - name: one tactical row per video frame of each game
+  - name: her maçta tactical kamerada her frame için tam bir satır var
     query: |
       SELECT count(*) FROM ham.maclar g
       LEFT JOIN (SELECT game, count(*) AS n, count(DISTINCT frame) AS d FROM ham.top

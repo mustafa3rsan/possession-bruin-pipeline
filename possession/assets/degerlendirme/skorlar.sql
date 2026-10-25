@@ -1,7 +1,7 @@
 /* @bruin
 name: degerlendirme.skorlar
 type: duckdb.sql
-description: The scoreboard, one row per run name and game. Ranked on spell_f1_mean like the official board.
+description: "Skor tablosu, her run ve maç için bir satır. Dashboard ve run karşılaştırması buradan geliyor; sıralama yarışmadaki gibi spellF1'e göre."
 
 depends:
   - degerlendirme.kare_skorlari
@@ -16,7 +16,7 @@ materialization:
   incremental_key: run_name
 
 custom_checks:
-  - name: one row per graded game for this run
+  - name: puanlanan her maç için bu run'ın bir satırı var
     query: |
       SELECT count(*) FROM temiz.maclar g
       LEFT JOIN degerlendirme.skorlar s ON s.game = g.game AND s.run_name = '{{ var.run_name }}'

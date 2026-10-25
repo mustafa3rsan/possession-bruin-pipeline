@@ -1,7 +1,7 @@
 /* @bruin
 name: model.calistirmalar
 type: duckdb.sql
-description: One row per run name, with the PARAMS and model/predict.py source that produced it.
+description: "Bütün run'ların kaydı, her run için bir satır; hangi kodla ve hangi parametrelerle çalıştığı."
 
 depends:
   - model.son_calistirma

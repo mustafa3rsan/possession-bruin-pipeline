@@ -1,7 +1,7 @@
 /* @bruin
 name: model.tahminler
 type: duckdb.sql
-description: Every run's labels, one row per run name, game and frame. Re-running a name replaces it.
+description: "Bütün run'ların tahmin arşivi. Yeni isimle çalıştırınca eklenir, aynı isimle çalıştırınca eskisinin yerine yazılır."
 
 depends:
   - model.son_tahminler
@@ -19,7 +19,7 @@ columns:
       - name: not_null
 
 custom_checks:
-  - name: every game has frames 0..n_frames-1 once each for this run
+  - name: bu run'da her maçın her frame'i tam bir kez var
     query: |
       SELECT count(*) FROM temiz.maclar g
       LEFT JOIN (
@@ -28,7 +28,7 @@ custom_checks:
       ) p USING (game)
       WHERE p.n IS DISTINCT FROM g.n_frames OR p.n_distinct <> g.n_frames OR p.lo <> 0 OR p.hi <> g.n_frames - 1
     value: 0
-  - name: labels are H, A, D or X
+  - name: etiketler sadece H, A, D ya da X
     query: SELECT count(*) FROM model.tahminler WHERE label NOT IN ('H', 'A', 'D', 'X') OR label IS NULL
     value: 0
 @bruin */

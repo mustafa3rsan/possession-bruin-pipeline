@@ -2,7 +2,7 @@
 name: model.son_calistirma
 image: python:3.11
 connection: possession
-description: This run, with the model's PARAMS and the source of model/predict.py that produced it.
+description: "Son run'ın adı, zamanı, PARAMS'ı ve o anki model kodu. Bir skoru hangi kodun ürettiğini sonradan görebilelim diye."
 
 materialization:
   type: table

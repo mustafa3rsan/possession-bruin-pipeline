@@ -1,7 +1,7 @@
 /* @bruin
 name: degerlendirme.bloklar
 type: duckdb.sql
-description: Constant-label runs of the ground truth and of each run's abstention-filled labels, per game, never crossing a gap between halves. H and A segments are the possessions.
+description: "Etiketin değişmediği kesintisiz parçalar, hem doğru cevap hem tahmin için. H ve A blokları possession'lar, D blokları ölü toplar. Hiçbir blok iki yarıya yayılmıyor."
 
 depends:
   - degerlendirme.kareler

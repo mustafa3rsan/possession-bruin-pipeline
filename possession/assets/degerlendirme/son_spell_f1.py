@@ -2,7 +2,7 @@
 name: degerlendirme.son_spell_f1
 image: python:3.11
 connection: possession
-description: This run's spellF1 per game from evaluation/possession_metrics.py, so it is the scorer's number exactly.
+description: "Yarışmanın asıl skoru spellF1, yani possession'ların kaçını bütün olarak yakaladığımız. Organizatörün kendi koduyla hesaplıyoruz ki sayı birebir aynı çıksın."
 
 secrets:
   - key: possession

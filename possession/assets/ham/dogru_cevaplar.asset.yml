@@ -1,6 +1,6 @@
 name: ham.dogru_cevaplar
 type: duckdb.seed
-description: Public ground truth of every game that has one (data/csv/gt_public.csv), one row per tactical video frame; X outside the graded window.
+description: "Organizatörün verdiği doğru cevaplar. Her frame için H (top ev sahibinde), A (deplasmanda), D (top ölü) ya da X (puanlanmıyor). BAR-ATH'ta sadece ilk 5 dakika dolu, gerisi X."
 
 depends:
   - ham.maclar
@@ -24,7 +24,7 @@ columns:
         value: [H, A, D, X]
 
 custom_checks:
-  - name: one row per tactical video frame of its game
+  - name: her maçta her frame için tam bir satır var
     query: |
       SELECT count(*) FROM (SELECT game, count(*) AS n, count(DISTINCT frame) AS d FROM ham.dogru_cevaplar GROUP BY game) t
       LEFT JOIN ham.maclar g USING (game)

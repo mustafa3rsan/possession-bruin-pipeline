@@ -1,6 +1,6 @@
 name: ham.metrica_top
 type: duckdb.seed
-description: Ball position (0-1) per frame of the Metrica sample games; null where not tracked. No speed in the source.
+description: "Metrica'nın açık iki maçında topun konumu. Bu maçları modelleri karşılaştırmak için test seti olarak kullanıyoruz. Hız bilgisi yok."
 
 parameters:
   path: ../../../../data/csv/metrica/ball.csv

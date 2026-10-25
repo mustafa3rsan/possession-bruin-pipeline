@@ -1,6 +1,6 @@
 name: ham.takimlar
 type: duckdb.seed
-description: The two teams of each ATD source; side H is the first team in the metadata.
+description: "Maçtaki iki takım ve hangisi ev sahibi (H), hangisi deplasman (A). Şimdilik hiçbir yerde kullanmıyoruz."
 
 parameters:
   path: ../../../data/csv/teams.csv
