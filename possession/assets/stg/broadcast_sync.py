@@ -12,8 +12,6 @@ depends:
   - raw.games
   - raw.ball
   - raw.homography
-  # Only so it never holds possession.duckdb while another Python step does; it runs last.
-  - eval.scores
 
 materialization:
   type: table

@@ -4,9 +4,6 @@ image: python:3.11
 connection: possession
 description: This run, with the model's PARAMS and the source of model/predict.py that produced it.
 
-depends:
-  - model.latest_predictions
-
 materialization:
   type: table
   strategy: create+replace

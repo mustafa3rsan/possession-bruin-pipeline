@@ -11,8 +11,6 @@ secrets:
 depends:
   - model.predictions
   - stg.ground_truth
-  # Only so the two Python steps never hold possession.duckdb at the same time.
-  - model.latest_run
 
 materialization:
   type: table

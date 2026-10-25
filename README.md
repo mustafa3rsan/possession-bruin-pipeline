@@ -32,12 +32,12 @@ environments:
           read_only: true
 YML
 
-bruin run --var 'run_name="baseline"' possession/
+bruin run --workers 1 --var 'run_name="baseline"' possession/
 bruin lineage possession/assets/eval/scores.sql
 dac serve --dir possession --open
 ```
 
-The seeds expect `data/csv/` (see the `path` of each asset under `possession/assets/raw`).
+The seeds expect `data/csv/` (see the `path` of each asset under `possession/assets/raw`). `--workers 1` runs one step at a time, because DuckDB lets only one process write to the file.
 
 ## Credits
 
