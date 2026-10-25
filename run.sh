@@ -37,7 +37,7 @@ python3 convert/metrica_to_csv.py
 # delete+insert on DuckDB neither creates a missing table nor adds new columns, so the first run, and
 # the first run after the tables changed shape, rebuilds them all. That drops the earlier runs.
 refresh=()
-if ! bruin query --connection possession --query "SELECT game FROM degerlendirme.skorlar LIMIT 0" >/dev/null 2>&1; then
+if ! bruin query --connection possession --query "SELECT 1 FROM degerlendirme.skorlar, model.girdiler_oyuncular, model.girdiler_top, (SELECT temizlik_kodu FROM model.calistirmalar) LIMIT 0" >/dev/null 2>&1; then
   refresh=(--full-refresh)
 fi
 bruin run --workers 1 "${refresh[@]+"${refresh[@]}"}" --var "run_name=\"$1\"" possession/

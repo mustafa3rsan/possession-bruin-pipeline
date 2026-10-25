@@ -1,4 +1,4 @@
-"""Local viewer of both videos and a radar of temiz.top + temiz.oyuncular: python3 viewer/server.py"""
+"""Local viewer of both videos and a radar of the raw data or any run's input data: python3 viewer/server.py"""
 
 import json
 import os
@@ -38,6 +38,33 @@ def competition_games():
     return query("SELECT game FROM temiz.maclar WHERE dataset = 'competition' ORDER BY game", [])["game"]
 
 
+def runs():
+    return query("""
+        SELECT r.run_name FROM model.calistirmalar r
+        WHERE r.run_name IN (SELECT DISTINCT run_name FROM model.girdiler_top)
+        ORDER BY r.created_at DESC""", [])["run_name"]
+
+
+def layer(game, key, start, stop):
+    """The ball and players of one data set: 'ham' for the raw tracking, or a run name for that run's input."""
+    if key == "ham":
+        ball = query("""
+            SELECT frame, x, y FROM ham.top
+            WHERE game = ? AND source = 'tactical' AND frame BETWEEN ? AND ? ORDER BY frame""", [game, start, stop])
+        players = query("""
+            SELECT p.frame, p.slot, t.side, p.x, p.y FROM ham.oyuncular p JOIN ham.slotlar t USING (game, source, slot)
+            WHERE p.game = ? AND p.source = 'tactical' AND p.frame BETWEEN ? AND ? ORDER BY p.frame, p.slot""",
+                        [game, start, stop])
+        return {"ball": ball, "players": players}
+    ball = query("""
+        SELECT frame, x, y FROM model.girdiler_top
+        WHERE run_name = ? AND game = ? AND frame BETWEEN ? AND ? ORDER BY frame""", [key, game, start, stop])
+    players = query("""
+        SELECT frame, slot, side, x, y FROM model.girdiler_oyuncular
+        WHERE run_name = ? AND game = ? AND frame BETWEEN ? AND ? ORDER BY frame, slot""", [key, game, start, stop])
+    return {"ball": ball, "players": players}
+
+
 def meta(game):
     games = competition_games()
     game = game if game in games else games[0]
@@ -54,6 +81,7 @@ def meta(game):
     return {
         "game": game,
         "games": games,
+        "runs": runs(),
         "videos": {source: os.path.isfile(video_path(game, source)) for source in SOURCES},
         "fps": info["fps"][0],
         "first_frame": first["f"][0] or 0,
@@ -67,14 +95,8 @@ def meta(game):
     }
 
 
-def window(game, start, count):
+def window(game, start, count, shown, compared):
     stop = start + count - 1
-    ball = query("""
-        SELECT frame, x, y FROM temiz.top
-        WHERE game = ? AND frame BETWEEN ? AND ? ORDER BY frame""", [game, start, stop])
-    players = query("""
-        SELECT frame, slot, side, x, y FROM temiz.oyuncular
-        WHERE game = ? AND frame BETWEEN ? AND ? ORDER BY frame, slot""", [game, start, stop])
     homography = query("""
         SELECT frame, {}, reprojection_error, valid FROM ham.homografi
         WHERE game = ? AND source = 'tactical' AND frame BETWEEN ? AND ? ORDER BY frame""".format(
@@ -85,15 +107,9 @@ def window(game, start, count):
         JOIN temiz.yayin_senkronu s ON s.game = h.game AND h.frame BETWEEN s.broadcast_start AND s.broadcast_end
         WHERE h.game = ? AND h.source = 'broadcast' AND h.frame + s."offset" BETWEEN ? AND ?
         ORDER BY 1""".format(", ".join("h." + c for c in H_COLUMNS)), [game, start, stop])
-    raw_ball = query("""
-        SELECT frame, x, y FROM ham.top
-        WHERE game = ? AND source = 'tactical' AND frame BETWEEN ? AND ? ORDER BY frame""", [game, start, stop])
-    raw_players = query("""
-        SELECT p.frame, p.slot, t.side, p.x, p.y FROM ham.oyuncular p JOIN ham.slotlar t USING (game, source, slot)
-        WHERE p.game = ? AND p.source = 'tactical' AND p.frame BETWEEN ? AND ? ORDER BY p.frame, p.slot""",
-                        [game, start, stop])
-    return {"start": start, "count": count, "ball": ball, "players": players, "homography": homography,
-            "broadcast_homography": broadcast_homography, "raw_ball": raw_ball, "raw_players": raw_players}
+    return {"start": start, "count": count, "homography": homography, "broadcast_homography": broadcast_homography,
+            "shown": layer(game, shown, start, stop),
+            "compared": layer(game, compared, start, stop) if compared else None}
 
 
 def clean_json(value):
@@ -180,7 +196,13 @@ class Handler(BaseHTTPRequestHandler):
                 args = parse_qs(url.query)
                 start = max(0, int(args["start"][0]))
                 count = min(MAX_WINDOW, max(1, int(args["count"][0])))
-                self.send_json(window(args["game"][0], start, count))
+                known = ["ham"] + runs()
+                shown = args.get("veri", ["ham"])[0]
+                compared = args.get("karsilastir", [""])[0]
+                if shown not in known or (compared and compared not in known):
+                    self.send_json({"error": "bilinmeyen veri seti: {} / {}".format(shown, compared)}, 400)
+                else:
+                    self.send_json(window(args["game"][0], start, count, shown, compared))
             else:
                 self.send_error(404)
         except duckdb.IOException as error:

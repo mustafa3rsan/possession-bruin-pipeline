@@ -40,11 +40,8 @@
 <header>
   <h1>Ball Viewer</h1>
   <select id="game"></select>
-  <select id="veri" title="Hangi veriyi göstereyim">
-    <option value="temiz">temiz veri</option>
-    <option value="ham">ham veri (temizlik öncesi)</option>
-    <option value="karsilastir">karşılaştır: ham + temiz</option>
-  </select>
+  <label>veri <select id="veri" title="Gösterilen veri: ham ya da bir run'ın modele giren verisi"></select></label>
+  <label>karşılaştır <select id="karsilastir" title="Altına kesik halkayla çizilecek ikinci veri"></select></label>
   <div class="group">
     <button id="play">▶ Oynat</button>
     <button data-step="-25">−1 s</button>
@@ -95,7 +92,7 @@
         <span><span class="dot" style="background:var(--home)"></span>Barcelona (H)</span>
         <span><span class="dot" style="background:var(--away)"></span>Athletic (A)</span>
         <span><span class="dot" style="background:var(--ball)"></span>top</span>
-        <span id="halkaAciklama" hidden><span class="dot" style="border:2px dashed var(--muted); background:none"></span>ham veri; dolu nokta temiz veri</span>
+        <span id="halkaAciklama" hidden><span class="dot" style="border:2px dashed var(--muted); background:none"></span><span id="halkaYazi"></span></span>
       </div>
       <div id="info"></div>
     </div>
@@ -125,13 +122,19 @@ const chunks = new Map(), pending = new Map();
 
 function status(text) { $('status').textContent = text || ''; }
 
-function indexChunk(d) {
-  const ball = new Map(), players = new Map(), hom = new Map();
+function indexLayer(d) {
+  const ball = new Map(), players = new Map();
+  if (!d) return { ball, players };
   d.ball.frame.forEach((f, k) => ball.set(f, { x: d.ball.x[k], y: d.ball.y[k] }));
   d.players.frame.forEach((f, k) => {
     if (!players.has(f)) players.set(f, []);
     players.get(f).push({ slot: d.players.slot[k], side: d.players.side[k], x: d.players.x[k], y: d.players.y[k] });
   });
+  return { ball, players };
+}
+
+function indexChunk(d) {
+  const hom = new Map();
   const h = d.homography;
   h.frame.forEach((f, k) => hom.set(f, {
     m: [h.h00[k], h.h01[k], h.h02[k], h.h10[k], h.h11[k], h.h12[k], h.h20[k], h.h21[k], h.h22[k]],
@@ -142,20 +145,14 @@ function indexChunk(d) {
     b: bh.broadcast_frame[k], valid: bh.valid[k] === 1,
     m: [bh.h00[k], bh.h01[k], bh.h02[k], bh.h10[k], bh.h11[k], bh.h12[k], bh.h20[k], bh.h21[k], bh.h22[k]],
   }));
-  const rawBall = new Map(), rawPlayers = new Map();
-  d.raw_ball.frame.forEach((f, k) => rawBall.set(f, { x: d.raw_ball.x[k], y: d.raw_ball.y[k] }));
-  d.raw_players.frame.forEach((f, k) => {
-    if (!rawPlayers.has(f)) rawPlayers.set(f, []);
-    rawPlayers.get(f).push({ slot: d.raw_players.slot[k], side: d.raw_players.side[k], x: d.raw_players.x[k], y: d.raw_players.y[k] });
-  });
-  return { ball, players, hom, bhom, rawBall, rawPlayers };
+  return { hom, bhom, shown: indexLayer(d.shown), compared: indexLayer(d.compared) };
 }
 
 function loadChunk(i) {
   if (i < 0 || (meta && i * CHUNK >= meta.n_frames)) return Promise.resolve(null);
   if (chunks.has(i)) return Promise.resolve(chunks.get(i));
   if (pending.has(i)) return pending.get(i);
-  const p = fetch(`/api/window?game=${encodeURIComponent(meta.game)}&start=${i * CHUNK}&count=${CHUNK}`).then(r => r.json()).then(d => {
+  const p = fetch(`/api/window?game=${encodeURIComponent(meta.game)}&veri=${encodeURIComponent($('veri').value)}&karsilastir=${encodeURIComponent($('karsilastir').value)}&start=${i * CHUNK}&count=${CHUNK}`).then(r => r.json()).then(d => {
     pending.delete(i);
     if (d.error) { status(d.error); return null; }
     chunks.set(i, indexChunk(d));
@@ -174,23 +171,21 @@ function at(f) {
   const c = chunks.get(Math.floor(f / CHUNK));
   if (!c) return null;
   return {
-    ball: c.ball.get(f), players: c.players.get(f) || [], hom: c.hom.get(f), bhom: c.bhom.get(f),
-    rawBall: c.rawBall.get(f), rawPlayers: c.rawPlayers.get(f) || [],
+    ball: c.shown.ball.get(f), players: c.shown.players.get(f) || [], hom: c.hom.get(f), bhom: c.bhom.get(f),
+    otherBall: c.compared.ball.get(f), otherPlayers: c.compared.players.get(f) || [],
   };
 }
 
-const mode = () => $('veri').value;
+const comparing = () => $('karsilastir').value !== '';
+const label = key => key === 'ham' ? 'ham veri' : `run ${key}`;
 
-// What to draw, in order: in compare mode the raw data goes underneath as dashed rings.
+// What to draw, in order: the compared data goes underneath as dashed rings.
 function layers(data) {
-  const raw = { players: data.rawPlayers, ball: data.rawBall, hollow: true };
-  const clean = { players: data.players, ball: data.ball, hollow: false };
-  if (mode() === 'ham') return [{ ...raw, hollow: false }];
-  if (mode() === 'karsilastir') return [raw, clean];
-  return [clean];
+  const shown = { players: data.players, ball: data.ball, hollow: false };
+  return comparing() ? [{ players: data.otherPlayers, ball: data.otherBall, hollow: true }, shown] : [shown];
 }
 
-const ballOf = d => d && (mode() === 'ham' ? d.rawBall : d.ball);
+const ballOf = d => d && d.ball;
 
 function project(m, x, y) {
   const d = m[6] * x + m[7] * y + m[8];
@@ -304,16 +299,18 @@ function drawRadar(f, data) {
   if ($('ovTrail').checked) drawTrail(f, toRadar, rctx, 1.5);
 }
 
-// Slots the cleaning dropped or moved to the other team at this frame.
+// Slots that are only in one of the two data sets, or on a different team, at this frame.
 function differences(data) {
-  const clean = new Map(data.players.map(p => [p.slot, p]));
-  const dropped = [], relabelled = [];
-  for (const p of data.rawPlayers) {
-    const c = clean.get(p.slot);
-    if (!c) dropped.push(`${p.side} slot ${p.slot}`);
-    else if (c.side !== p.side) relabelled.push(`slot ${p.slot} ${p.side}→${c.side}`);
+  const shown = new Map(data.players.map(p => [p.slot, p]));
+  const other = new Map(data.otherPlayers.map(p => [p.slot, p]));
+  const missing = [], extra = [], relabelled = [];
+  for (const [slot, p] of other) {
+    const s = shown.get(slot);
+    if (!s) missing.push(`${p.side} slot ${slot}`);
+    else if (s.side !== p.side) relabelled.push(`slot ${slot} ${p.side}→${s.side}`);
   }
-  return { dropped, relabelled };
+  for (const [slot, p] of shown) if (!other.has(slot)) extra.push(`${p.side} slot ${slot}`);
+  return { missing, extra, relabelled };
 }
 
 function drawInfo(f, data) {
@@ -326,16 +323,17 @@ function drawInfo(f, data) {
   else if (b.x === null) ballLine = 'top: görünmüyor';
   else ballLine = `top: x ${b.x}   y ${b.y}`;
   lines.push(ballLine);
-  const players = mode() === 'ham' ? data.rawPlayers : data.players;
-  const home = players.filter(p => p.side === 'H').length, away = players.length - home;
-  lines.push(`oyuncu: H ${home}   A ${away}`);
-  if (mode() !== 'temiz') {
-    const { dropped, relabelled } = differences(data);
-    const rawHome = data.rawPlayers.filter(p => p.side === 'H').length;
-    lines.push(`ham: H ${rawHome}   A ${data.rawPlayers.length - rawHome}   temiz: H ${data.players.filter(p => p.side === 'H').length}   A ${data.players.filter(p => p.side === 'A').length}`);
-    lines.push(dropped.length || relabelled.length
-      ? `<span class="warn">temizlik: ${[dropped.length ? 'silinen ' + dropped.join(', ') : '', relabelled.length ? 'takımı değişen ' + relabelled.join(', ') : ''].filter(Boolean).join('   ')}</span>`
-      : 'temizlik bu frame\'de bir şey değiştirmedi');
+  const count = list => `H ${list.filter(p => p.side === 'H').length}   A ${list.filter(p => p.side === 'A').length}`;
+  lines.push(`oyuncu (${label($('veri').value)}): ${count(data.players)}`);
+  if (comparing()) {
+    const { missing, extra, relabelled } = differences(data);
+    lines.push(`oyuncu (${label($('karsilastir').value)}): ${count(data.otherPlayers)}`);
+    const parts = [
+      missing.length ? `${label($('veri').value)}'da yok: ${missing.join(', ')}` : '',
+      extra.length ? `${label($('karsilastir').value)}'da yok: ${extra.join(', ')}` : '',
+      relabelled.length ? `takımı farklı: ${relabelled.join(', ')}` : '',
+    ].filter(Boolean);
+    lines.push(parts.length ? `<span class="warn">fark: ${parts.join('   ')}</span>` : 'bu frame\'de iki veri aynı');
   }
   if (data.hom) lines.push(`homography: ${data.hom.valid ? 'geçerli' : 'YOK'}   reprojection_error ${data.hom.err}` +
     (data.hom.err > 2 ? '   <span class="warn">(yüksek)</span>' : ''));
@@ -343,9 +341,10 @@ function drawInfo(f, data) {
 }
 
 function render() {
-  const label = { temiz: 'temiz veri', ham: 'ham veri', karsilastir: 'ham (kesik halka) + temiz' }[mode()];
-  document.querySelectorAll('.katman').forEach(el => { el.textContent = '· ' + label; });
-  $('halkaAciklama').hidden = mode() !== 'karsilastir';
+  const title = label($('veri').value) + (comparing() ? ` + ${label($('karsilastir').value)} (kesik halka)` : '');
+  document.querySelectorAll('.katman').forEach(el => { el.textContent = '· ' + title; });
+  $('halkaAciklama').hidden = !comparing();
+  $('halkaYazi').textContent = `${label($('karsilastir').value)}; dolu nokta ${label($('veri').value)}`;
   const data = at(frame);
   drawOverlay(frame, data);
   drawBroadcast();
@@ -354,8 +353,8 @@ function render() {
   $('tacFrame').textContent = `frame ${frame}`;
 }
 
-function setFrame(f) {
-  if (f === frame && chunks.has(Math.floor(f / CHUNK))) return;
+function setFrame(f, force) {
+  if (!force && f === frame && chunks.has(Math.floor(f / CHUNK))) return;
   frame = f;
   const i = Math.floor(f / CHUNK);
   loadChunk(i); loadChunk(i + 1);
@@ -447,9 +446,19 @@ fetch(`/api/meta?game=${encodeURIComponent(query.get('game') || '')}`).then(r =>
   meta = m;
   FPS = m.fps;
   $('game').innerHTML = m.games.map(g => `<option${g === m.game ? ' selected' : ''}>${g}</option>`).join('');
-  $('game').onchange = () => { location.search = '?game=' + encodeURIComponent($('game').value) + '&veri=' + mode(); };
-  if (query.get('veri')) $('veri').value = query.get('veri');
-  $('veri').onchange = render;
+  const options = ['ham', ...m.runs].map(k => `<option value="${k}">${label(k)}</option>`).join('');
+  $('veri').innerHTML = options;
+  $('karsilastir').innerHTML = '<option value="">yok</option>' + options;
+  $('veri').value = query.get('veri') || m.runs[0] || 'ham';
+  $('karsilastir').value = query.get('karsilastir') || '';
+  const reload = () => {
+    const params = new URLSearchParams({ game: $('game').value, veri: $('veri').value, karsilastir: $('karsilastir').value, frame });
+    history.replaceState(null, '', '?' + params);
+    chunks.clear(); pending.clear(); setFrame(frame, true);
+  };
+  $('game').onchange = () => { location.search = '?game=' + encodeURIComponent($('game').value); };
+  $('veri').onchange = reload;
+  $('karsilastir').onchange = reload;
   const missing = Object.entries(m.videos).filter(([, ok]) => !ok).map(([s]) => s);
   if (missing.length) status(`video yok: ${missing.map(s => `data/videos/${s}/${m.game}_${s}.mp4`).join(', ')}`);
   tac.src = `/video/${encodeURIComponent(m.game)}/tactical`;
