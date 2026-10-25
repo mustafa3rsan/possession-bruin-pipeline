@@ -1,0 +1,23 @@
+name: raw.teams
+type: duckdb.seed
+description: The two teams of each ATD source; side H is the first team in the metadata.
+
+parameters:
+  path: ../../../data/csv/teams.csv
+
+columns:
+  - name: game
+    type: varchar
+    checks:
+      - name: not_null
+  - name: source
+    type: varchar
+  - name: team_id
+    type: varchar
+  - name: name
+    type: varchar
+  - name: side
+    type: varchar
+    checks:
+      - name: accepted_values
+        value: [H, A]

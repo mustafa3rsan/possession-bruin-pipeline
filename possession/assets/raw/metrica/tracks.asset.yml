@@ -1,0 +1,19 @@
+name: raw.metrica_tracks
+type: duckdb.seed
+description: Player slots of the Metrica sample games, home first, and their side.
+
+parameters:
+  path: ../../../../data/csv/metrica/tracks.csv
+
+columns:
+  - name: game
+    type: varchar
+  - name: slot
+    type: integer
+  - name: player_id
+    type: varchar
+  - name: side
+    type: varchar
+    checks:
+      - name: accepted_values
+        value: [H, A]

@@ -1,0 +1,9 @@
+# Match data is licensed to competition participants only and never goes in this repository.
+data/
+*.duckdb
+*.duckdb.wal
+.bruin.yml
+logs/
+__pycache__/
+.venv/
+.DS_Store

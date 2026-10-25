@@ -1,0 +1,252 @@
+name: Possession runs
+description: Every pipeline run, scored on the public window of each competition game and on the Metrica sample games
+connection: possession_read
+
+filters:
+  - name: run
+    type: select
+    default: ""
+    options:
+      query: SELECT DISTINCT run_name FROM eval.scores ORDER BY run_name
+  - name: game
+    type: select
+    default: ""
+    options:
+      query: SELECT game FROM stg.games WHERE graded ORDER BY dataset, game
+  - name: timeline_minute
+    type: number
+    default: 0
+    tab: Overview
+
+queries:
+  selected:
+    sql: |
+      SELECT * FROM eval.scores
+      WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+        AND run_name = coalesce(nullif('{{ filters.run }}', ''),
+                                (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+
+rows:
+  - widgets:
+      - name: How to read this
+        type: text
+        col: 12
+        content: |
+          **Pick models on the Metrica average.** Metrica 1 and 2 are full matches with ~665 possessions between them,
+          labelled from their event data; on the four organiser baselines they pick the same winner as the hidden
+          full-match score. A competition game is graded on its public window only (BAR-ATH: 5 minutes, 17 possessions): a check, not a ranking.
+          Metrica's labels are defined differently from the competition's, so compare runs, not absolute numbers.
+
+  - widgets:
+      - name: spellF1 per run and game
+        type: table
+        col: 12
+        sql: |
+          SELECT run_name,
+                 avg(spell_f1_mean) FILTER (WHERE dataset = 'metrica sample') AS metrica_avg,
+                 any_value(spell_f1_mean) FILTER (WHERE game = 'metrica_1') AS metrica_1,
+                 any_value(spell_f1_mean) FILTER (WHERE game = 'metrica_2') AS metrica_2,
+                 avg(spell_f1_mean) FILTER (WHERE dataset = 'competition') AS competition_public,
+                 avg(macro_f1) FILTER (WHERE dataset = 'metrica sample') AS metrica_macro_f1,
+                 avg(macro_f1) FILTER (WHERE dataset = 'competition') AS competition_macro_f1,
+                 any_value(params) AS params,
+                 max(created_at) AS created_at
+          FROM eval.scores
+          GROUP BY run_name
+          ORDER BY metrica_avg DESC
+        columns:
+          - name: run_name
+            frozen: true
+          - name: metrica_avg
+            label: Metrica avg spellF1
+            number: ".4f"
+            format:
+              - { backgroundColor: [red, white, green] }
+          - name: metrica_1
+            label: Metrica 1
+            number: ".4f"
+            format:
+              - { backgroundColor: [red, white, green] }
+          - name: metrica_2
+            label: Metrica 2
+            number: ".4f"
+            format:
+              - { backgroundColor: [red, white, green] }
+          - name: competition_public
+            label: Competition public window
+            number: ".4f"
+            format:
+              - { backgroundColor: [red, white, green] }
+          - name: metrica_macro_f1
+            label: Metrica avg macroF1
+            number: ".4f"
+          - name: competition_macro_f1
+            label: Competition macroF1
+            number: ".4f"
+
+  - tab: Overview
+    widgets:
+      - name: spellF1 (ranked on)
+        type: metric
+        col: 3
+        query: selected
+        value: { field: spell_f1_mean, type: number, format: ".4f" }
+      - name: macroF1
+        type: metric
+        col: 3
+        query: selected
+        value: { field: macro_f1, type: number, format: ".4f" }
+      - name: Possessions predicted
+        type: metric
+        col: 3
+        query: selected
+        value: { field: poss, type: number, format: ",d" }
+      - name: Possessions in the ground truth
+        type: metric
+        col: 3
+        query: selected
+        value: { field: gt_poss, type: number, format: ",d" }
+
+  - tab: Overview
+    widgets:
+      - name: Selected game, every run
+        type: table
+        col: 12
+        sql: |
+          SELECT run_name, spell_f1_mean, spell_bootstrap_low, spell_bootstrap_high, macro_f1,
+                 poss, gt_poss, dur, gt_dur, accuracy, alive_dead_f1, f1_d, team_acc_gt_alive
+          FROM eval.scores
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+          ORDER BY spell_f1_mean DESC, macro_f1 DESC
+        columns:
+          - name: run_name
+            frozen: true
+          - name: spell_f1_mean
+            label: spellF1
+            number: ".4f"
+            format:
+              - { backgroundColor: [red, white, green] }
+          - name: spell_bootstrap_low
+            label: spellF1 5%
+            number: ".3f"
+          - name: spell_bootstrap_high
+            label: spellF1 95%
+            number: ".3f"
+          - name: macro_f1
+            label: macroF1
+            number: ".4f"
+          - name: dur
+            label: mean poss (s)
+            number: ".1f"
+          - name: gt_dur
+            label: gt mean poss (s)
+            number: ".1f"
+          - name: accuracy
+            number: ".1%"
+          - name: alive_dead_f1
+            number: ".4f"
+          - name: f1_d
+            label: F1 dead ball
+            number: ".4f"
+          - name: team_acc_gt_alive
+            label: team acc
+            number: ".1%"
+
+  - tab: Overview
+    widgets:
+      - name: Timeline, ground truth vs selected run (5 minutes from the timeline_minute filter)
+        type: chart
+        chart: vega-lite
+        col: 12
+        sql: |
+          WITH start AS (
+            SELECT min(start_frame) + {{ filters.timeline_minute }} * 1500 AS first_frame
+            FROM eval.segments WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1)) AND series = 'gt'
+          )
+          SELECT CASE series WHEN 'gt' THEN 'ground truth' ELSE run_name END AS source,
+                 label,
+                 greatest(start_frame, first_frame) / 25.0 AS start_s,
+                 least(stop_frame, first_frame + 7500) / 25.0 AS end_s
+          FROM eval.segments, start
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+            AND run_name = coalesce(nullif('{{ filters.run }}', ''),
+                                    (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+            AND stop_frame > first_frame AND start_frame < first_frame + 7500
+          ORDER BY source, start_s
+        spec:
+          height: 120
+          mark: { type: bar }
+          encoding:
+            y: { field: source, type: nominal, title: null, sort: ["ground truth"] }
+            x: { field: start_s, type: quantitative, title: "video time (s)", scale: { zero: false } }
+            x2: { field: end_s }
+            color:
+              field: label
+              type: nominal
+              scale: { domain: [H, A, D, X], range: ["#2563EB", "#DC2626", "#9CA3AF", "#111827"] }
+            tooltip:
+              - { field: source }
+              - { field: label }
+              - { field: start_s, title: start (s) }
+              - { field: end_s, title: end (s) }
+
+  - tab: Overview
+    widgets:
+      - name: Confusion matrix (graded frames)
+        type: pivot_table
+        col: 6
+        sql: |
+          SELECT 'truth ' || gt AS truth, 'pred ' || pred AS pred, frames
+          FROM eval.confusion
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+            AND run_name = coalesce(nullif('{{ filters.run }}', ''),
+                                    (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+        pivot:
+          rows: [ { field: truth, showTotals: true } ]
+          columns: [ { field: pred, showTotals: true } ]
+          values:
+            - field: frames
+              summarize: sum
+              format:
+                - backgroundColor: ["#FFFFFF", "#60A5FA"]
+      - name: spellF1 by IoU threshold
+        type: chart
+        chart: bar
+        col: 6
+        sql: |
+          SELECT iou, f1 FROM (
+            SELECT * FROM eval.scores
+            WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+              AND run_name = coalesce(nullif('{{ filters.run }}', ''),
+                                      (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+          ) UNPIVOT (f1 FOR iou IN (spell_f1_iou_03 AS '0.3', spell_f1_iou_04 AS '0.4', spell_f1_iou_05 AS '0.5',
+                                    spell_f1_iou_06 AS '0.6', spell_f1_iou_07 AS '0.7'))
+          ORDER BY iou
+        x: { field: iou, type: category }
+        y: { field: [f1], type: number, format: ".2f", beginAtZero: true }
+
+  - tab: Overview
+    widgets:
+      - name: Frame agreement per minute, every run, selected game
+        type: chart
+        chart: line
+        col: 12
+        sql: |
+          SELECT floor(frame / 1500) AS minute, run_name, avg((pred = gt)::INT) AS agreement
+          FROM eval.frames
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+          GROUP BY ALL ORDER BY minute
+        x: { field: minute, type: number }
+        y: { field: [agreement], format: ".0%", beginAtZero: true }
+        color: { field: run_name }
+
+  - tab: Run details
+    widgets:
+      - name: Model behind the selected run
+        type: table
+        col: 12
+        sql: |
+          SELECT run_name, created_at, params, model_source
+          FROM model.runs
+          WHERE run_name = coalesce(nullif('{{ filters.run }}', ''),
+                                    (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
