@@ -27,7 +27,7 @@ def materialize():
     with open(os.path.join(os.getcwd(), "model", "predict.py")) as handle:
         source = handle.read()
     cleaning = {}
-    for name in sorted(os.listdir(TEMIZ_DIR)):
+    for name in sorted(n for n in os.listdir(TEMIZ_DIR) if n.endswith((".sql", ".py"))):
         with open(os.path.join(TEMIZ_DIR, name)) as handle:
             cleaning[name] = handle.read()
     return pd.DataFrame([{
