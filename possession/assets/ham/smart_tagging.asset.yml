@@ -1,0 +1,41 @@
+name: ham.smart_tagging
+type: duckdb.seed
+description: Metrica Smart Tagging phases and set pieces of every game, start/end in seconds and tactical video frames.
+
+parameters:
+  path: ../../../data/csv/smart_tagging.csv
+
+columns:
+  - name: game
+    type: varchar
+    checks:
+      - name: not_null
+  - name: id
+    type: integer
+  - name: code
+    type: varchar
+  - name: start_s
+    type: double
+  - name: end_s
+    type: double
+  - name: start_frame
+    type: integer
+  - name: end_frame
+    type: integer
+  - name: team
+    type: varchar
+  - name: type
+    type: varchar
+  - name: half
+    type: varchar
+  - name: max_players_in_the_box
+    type: varchar
+  - name: side
+    type: varchar
+  - name: direction_of_ball_entry
+    type: varchar
+
+custom_checks:
+  - name: id is unique within a game
+    query: SELECT count(*) - count(DISTINCT (game, id)) FROM ham.smart_tagging
+    value: 0

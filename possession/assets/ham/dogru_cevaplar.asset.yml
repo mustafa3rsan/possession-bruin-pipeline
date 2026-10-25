@@ -1,0 +1,32 @@
+name: ham.dogru_cevaplar
+type: duckdb.seed
+description: Public ground truth of every game that has one (data/csv/gt_public.csv), one row per tactical video frame; X outside the graded window.
+
+depends:
+  - ham.maclar
+
+parameters:
+  path: ../../../data/csv/gt_public.csv
+
+columns:
+  - name: game
+    type: varchar
+    checks:
+      - name: not_null
+  - name: frame
+    type: integer
+    checks:
+      - name: not_null
+  - name: label
+    type: varchar
+    checks:
+      - name: accepted_values
+        value: [H, A, D, X]
+
+custom_checks:
+  - name: one row per tactical video frame of its game
+    query: |
+      SELECT count(*) FROM (SELECT game, count(*) AS n, count(DISTINCT frame) AS d FROM ham.dogru_cevaplar GROUP BY game) t
+      LEFT JOIN ham.maclar g USING (game)
+      WHERE t.n IS DISTINCT FROM g.n_frames OR t.d <> g.n_frames
+    value: 0

@@ -1,7 +1,7 @@
 """The model the pipeline runs. Change it here, then bruin run --var 'run_name="<new_name>"' possession/.
 
-predict(con, game) gets a DuckDB connection and one game from stg.games, reads stg.ball and
-stg.players for that game, and returns one row per frame: frame (0..n_frames-1) and label
+predict(con, game) gets a DuckDB connection and one game from temiz.maclar, reads temiz.top and
+temiz.oyuncular for that game, and returns one row per frame: frame (0..n_frames-1) and label
 (H, A, D or X). The same code runs on every game. PARAMS is stored with every run.
 """
 
@@ -15,8 +15,8 @@ PARAMS = {"window": 50}
 NEAREST_PLAYER_SQL = """
 SELECT b.frame,
        arg_min(p.side, [power(p.x * $length - b.x * $length, 2) + power(p.y * $width - b.y * $width, 2), p.slot]) AS side
-FROM stg.ball b
-JOIN stg.players p ON p.game = b.game AND p.frame = b.frame
+FROM temiz.top b
+JOIN temiz.oyuncular p ON p.game = b.game AND p.frame = b.frame
 WHERE b.game = $game AND b.x IS NOT NULL
 GROUP BY b.frame
 """
@@ -45,7 +45,7 @@ def smooth(codes, window):
 
 def predict(con, game):
     n_frames, length, width = con.execute(
-        "SELECT n_frames, pitch_length, pitch_width FROM stg.games WHERE game = ?", [game]).fetchone()
+        "SELECT n_frames, pitch_length, pitch_width FROM temiz.maclar WHERE game = ?", [game]).fetchone()
     nearest = con.execute(NEAREST_PLAYER_SQL, {"game": game, "length": length, "width": width}).df()
     codes = np.full(n_frames, NOBODY, dtype=np.int8)
     codes[nearest["frame"].values] = np.where(nearest["side"].values == "H", HOME, AWAY)

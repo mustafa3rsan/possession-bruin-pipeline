@@ -1,9 +1,13 @@
 # Match data is licensed to competition participants only and never goes in this repository.
-data/
+/data
 *.duckdb
 *.duckdb.wal
 .bruin.yml
-logs/
+# Bruin adds these on every run unless they are already listed.
+logs/runs
+logs/*.log
+logs/queries
 __pycache__/
+*.py[cod]
 .venv/
 .DS_Store

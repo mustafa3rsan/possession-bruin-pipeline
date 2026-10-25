@@ -7,12 +7,12 @@ filters:
     type: select
     default: ""
     options:
-      query: SELECT DISTINCT run_name FROM eval.scores ORDER BY run_name
+      query: SELECT DISTINCT run_name FROM degerlendirme.skorlar ORDER BY run_name
   - name: game
     type: select
     default: ""
     options:
-      query: SELECT game FROM stg.games WHERE graded ORDER BY dataset, game
+      query: SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game
   - name: timeline_minute
     type: number
     default: 0
@@ -21,10 +21,10 @@ filters:
 queries:
   selected:
     sql: |
-      SELECT * FROM eval.scores
-      WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+      SELECT * FROM degerlendirme.skorlar
+      WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1))
         AND run_name = coalesce(nullif('{{ filters.run }}', ''),
-                                (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+                                (SELECT run_name FROM degerlendirme.skorlar ORDER BY created_at DESC LIMIT 1))
 
 rows:
   - widgets:
@@ -51,7 +51,7 @@ rows:
                  avg(macro_f1) FILTER (WHERE dataset = 'competition') AS competition_macro_f1,
                  any_value(params) AS params,
                  max(created_at) AS created_at
-          FROM eval.scores
+          FROM degerlendirme.skorlar
           GROUP BY run_name
           ORDER BY metrica_avg DESC
         columns:
@@ -115,8 +115,8 @@ rows:
         sql: |
           SELECT run_name, spell_f1_mean, spell_bootstrap_low, spell_bootstrap_high, macro_f1,
                  poss, gt_poss, dur, gt_dur, accuracy, alive_dead_f1, f1_d, team_acc_gt_alive
-          FROM eval.scores
-          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+          FROM degerlendirme.skorlar
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1))
           ORDER BY spell_f1_mean DESC, macro_f1 DESC
         columns:
           - name: run_name
@@ -161,16 +161,16 @@ rows:
         sql: |
           WITH start AS (
             SELECT min(start_frame) + {{ filters.timeline_minute }} * 1500 AS first_frame
-            FROM eval.segments WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1)) AND series = 'gt'
+            FROM degerlendirme.bloklar WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1)) AND series = 'gt'
           )
           SELECT CASE series WHEN 'gt' THEN 'ground truth' ELSE run_name END AS source,
                  label,
                  greatest(start_frame, first_frame) / 25.0 AS start_s,
                  least(stop_frame, first_frame + 7500) / 25.0 AS end_s
-          FROM eval.segments, start
-          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+          FROM degerlendirme.bloklar, start
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1))
             AND run_name = coalesce(nullif('{{ filters.run }}', ''),
-                                    (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+                                    (SELECT run_name FROM degerlendirme.skorlar ORDER BY created_at DESC LIMIT 1))
             AND stop_frame > first_frame AND start_frame < first_frame + 7500
           ORDER BY source, start_s
         spec:
@@ -197,10 +197,10 @@ rows:
         col: 6
         sql: |
           SELECT 'truth ' || gt AS truth, 'pred ' || pred AS pred, frames
-          FROM eval.confusion
-          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+          FROM degerlendirme.karisiklik
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1))
             AND run_name = coalesce(nullif('{{ filters.run }}', ''),
-                                    (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+                                    (SELECT run_name FROM degerlendirme.skorlar ORDER BY created_at DESC LIMIT 1))
         pivot:
           rows: [ { field: truth, showTotals: true } ]
           columns: [ { field: pred, showTotals: true } ]
@@ -215,10 +215,10 @@ rows:
         col: 6
         sql: |
           SELECT iou, f1 FROM (
-            SELECT * FROM eval.scores
-            WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+            SELECT * FROM degerlendirme.skorlar
+            WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1))
               AND run_name = coalesce(nullif('{{ filters.run }}', ''),
-                                      (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+                                      (SELECT run_name FROM degerlendirme.skorlar ORDER BY created_at DESC LIMIT 1))
           ) UNPIVOT (f1 FOR iou IN (spell_f1_iou_03 AS '0.3', spell_f1_iou_04 AS '0.4', spell_f1_iou_05 AS '0.5',
                                     spell_f1_iou_06 AS '0.6', spell_f1_iou_07 AS '0.7'))
           ORDER BY iou
@@ -233,8 +233,8 @@ rows:
         col: 12
         sql: |
           SELECT floor(frame / 1500) AS minute, run_name, avg((pred = gt)::INT) AS agreement
-          FROM eval.frames
-          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM stg.games WHERE graded ORDER BY dataset, game LIMIT 1))
+          FROM degerlendirme.kareler
+          WHERE game = coalesce(nullif('{{ filters.game }}', ''), (SELECT game FROM temiz.maclar WHERE graded ORDER BY dataset, game LIMIT 1))
           GROUP BY ALL ORDER BY minute
         x: { field: minute, type: number }
         y: { field: [agreement], format: ".0%", beginAtZero: true }
@@ -247,6 +247,6 @@ rows:
         col: 12
         sql: |
           SELECT run_name, created_at, params, model_source
-          FROM model.runs
+          FROM model.calistirmalar
           WHERE run_name = coalesce(nullif('{{ filters.run }}', ''),
-                                    (SELECT run_name FROM eval.scores ORDER BY created_at DESC LIMIT 1))
+                                    (SELECT run_name FROM degerlendirme.skorlar ORDER BY created_at DESC LIMIT 1))

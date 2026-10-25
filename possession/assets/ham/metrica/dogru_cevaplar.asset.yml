@@ -1,0 +1,14 @@
+name: ham.metrica_dogru_cevaplar
+type: duckdb.seed
+description: Per-frame H/A/D/X labels of the Metrica sample games, derived from their event data.
+
+parameters:
+  path: ../../../../data/csv/metrica/ground_truth.csv
+
+columns:
+  - name: game
+    type: varchar
+  - name: frame
+    type: integer
+  - name: label
+    type: varchar

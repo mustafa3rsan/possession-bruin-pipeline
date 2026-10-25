@@ -1,0 +1,38 @@
+name: ham.homografi
+type: duckdb.seed
+description: Per-frame 3x3 matrix from normalised pitch coordinates to image pixels; NaN where valid = 0.
+
+parameters:
+  path: ../../../data/csv/homography.csv
+
+columns:
+  - name: game
+    type: varchar
+    checks:
+      - name: not_null
+  - name: source
+    type: varchar
+  - name: frame
+    type: integer
+  - name: h00
+    type: double
+  - name: h01
+    type: double
+  - name: h02
+    type: double
+  - name: h10
+    type: double
+  - name: h11
+    type: double
+  - name: h12
+    type: double
+  - name: h20
+    type: double
+  - name: h21
+    type: double
+  - name: h22
+    type: double
+  - name: reprojection_error
+    type: double
+  - name: valid
+    type: integer

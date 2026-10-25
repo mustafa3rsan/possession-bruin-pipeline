@@ -1,0 +1,24 @@
+name: ham.oyuncular
+type: duckdb.seed
+description: Tracked object positions (normalised 0-1) and speed, one row per observed slot per frame.
+
+parameters:
+  path: ../../../data/csv/players.csv
+
+columns:
+  - name: game
+    type: varchar
+    checks:
+      - name: not_null
+  - name: source
+    type: varchar
+  - name: frame
+    type: integer
+  - name: slot
+    type: integer
+  - name: x
+    type: double
+  - name: y
+    type: double
+  - name: speed
+    type: double
